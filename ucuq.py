@@ -36,7 +36,6 @@ _writeLock = threading.Lock()
 ITEMS_ = "i_"
 
 # Request
-R_PING_ = "Ping_1"
 R_EXECUTE_ = "Execute_1"
 R_UPLOAD_ = "Upload_1"
 
@@ -196,24 +195,6 @@ def getToken():
 def getDeviceId():
   return getDevice_().getDeviceId()
 
-def ping():
-  return getDevice_().ping()
-
-def handleATK(dom):
-  dom.inner("", "<h3>Connecting…</h3>")
-
-  try:
-    label = ping()
-  except Exception as err:
-    dom.inner("", f"<h5>Error: {err}</h5>")
-    raise
-
-  dom.inner("", f"<h3>'{label}'</h3>")
-
-  time.sleep(1.5)
-
-  return label
-
 CONFIG_DEVICE_ENTRY = "Device"
 CONFIG_DEVICE_TOKEN_ENTRY = "Token"
 CONFIG_DEVICE_ID_ENTRY = "Id"
@@ -322,22 +303,6 @@ class Device_:
         raise Error("Unknown answer from device!")
 
 
-  def ping(self):
-    writeString_(self.socket_, R_PING_)
-
-    if ( answer := readUInt_(self.socket_) ) == A_OK_:
-      return readString_(self.socket_)
-    elif answer == A_ERROR_:
-      raise Error("Unexpected response from device!")
-    elif answer == A_PUZZLED_:
-      readString_(self.socket_) # For future use
-      raise Error("Puzzled!")
-    elif answer == A_DISCONNECTED:
-        raise Error("Disconnected from device!")
-    else:
-      raise Error("Unknown answer from device!")
-    
-    
 class Device(Device_):
   def __init__(self, /, id = None, token = None, now = True):
     self.pendingModules = ["Init_1"]
@@ -380,6 +345,47 @@ class Device(Device_):
 ###############
 # UCUq COMMON #
 ###############
+
+INFO_SCRIPT = """
+def ucuqGetKitLabel(): 
+  if "Kit" in CONFIG_:
+    kit = CONFIG_["Kit"]
+
+    id = getSelectorId_(SELECTOR_)
+
+    if id in kit:
+      return kit[id]
+    else:
+      return ""
+
+def ucuqStructToDict(obj):
+    return {attr: getattr(obj, attr) for attr in dir(obj) if not attr.startswith('__')}
+
+def ucuqGetInfos():
+  return {
+    "kit": {
+      "label": ucuqGetKitLabel()
+    },
+    "uname": ucuqStructToDict(uos.uname())
+  }
+"""
+
+def handleATK(dom):
+  dom.inner("", "<h3>Connecting…</h3>")
+  
+  addCommand(INFO_SCRIPT)
+
+  try:
+    info = commit("ucuqGetInfos()")
+  except Exception as err:
+    dom.inner("", f"<h5>Error: {err}</h5>")
+    raise
+
+  dom.inner("", f"<h3>'{info['kit']['label']}'</h3>")
+
+  time.sleep(1.5)
+
+  return info
 
 def getDevice_(device = None):
   if device == None:

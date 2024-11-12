@@ -83,7 +83,7 @@ def updateUI(dom, onDuty):
         raise Exception("Unknown preset!")
 
 def acConnect(dom):
-  label = ucuq.handleATK(dom)
+  label = ucuq.handleATK(dom)["kit"]["label"]
 
   dom.inner("", BODY)
   dom.executeVoid("setColorWheel()")
