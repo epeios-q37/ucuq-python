@@ -78,7 +78,7 @@
           "pin": 11
         },
         "Tweak": {
-          "offset": 185
+          "offset": -15
         }
       },
       "R": {
@@ -105,7 +105,8 @@
       "Hardware": {
         "mode": "PCA",
         "sda": 13,
-        "scl": 14
+        "scl": 14,
+        "offset": 9
       },
       "Specs": {
         "freq": 50,
@@ -190,6 +191,61 @@
       "FRa": {
         "Hardware": {
           "channel": 15
+        }
+      }
+    }
+  },
+  "Yellow": {
+    "Preset": {
+      "Hardware": {
+        "mode": "PCA",
+        "soft": false,
+        "sda": 8,
+        "scl": 9,
+        "offset": 8
+      },
+      "Specs": {
+        "freq": 50,
+        "u16_min": 1472,
+        "u16_max": 8352,
+        "range": 190
+      },
+      "Tweak": {
+        "angle": 90,
+        "invert": true
+      }
+    },
+    "Motors": {
+      "a": {
+        "Hardware": {
+          "channel": 0
+        },
+        "Tweak": {
+          "offset": -8 
+        }
+      },
+      "b": {
+        "Hardware": {
+          "channel": 1
+        },
+        "Tweak": {
+          "offset": -56
+        }
+      },
+      "c": {
+        "Hardware": {
+          "channel": 2
+        },
+        "Tweak": {
+          "offset": 136 
+        }
+      },
+      "d": {
+        "Hardware": {
+          "channel": 3
+        },
+        "Tweak": {
+          "offset": -56 
         }
       }
     }

@@ -25,10 +25,12 @@ HARDWARE_MODE_SUBKEY = "mode"
 SPECS_KEY = "Specs"
 TWEAK_KEY = "Tweak"
 
+STEP = int(1625 / 180)
+
 CONFIG_KEYS = {
   HARDWARE_KEY: {
     M_STRAIGHT: ["pin"],
-    M_PCA: ["sda", "scl", "channel"]
+    M_PCA: ["sda", "scl", "channel", "offset", "soft"]
   },
   SPECS_KEY: ["freq", "u16_min", "u16_max", "range"],
   TWEAK_KEY: ["angle", "offset", "invert"]
@@ -65,11 +67,12 @@ servos = {}
 pca = None
 
 
-def reset_(dom):
-  for servo in servos:
-    servos[servo].reset()
+def reset_():
+  moves = []
+  for servo in servos.values():
+    moves.append([servo, 0])
 
-  ucuq.commit()
+  ucuq.servoMoves(moves, int(2 * STEP * DEFAULT_SPEED))
 
 
 def displayMacros(dom):
@@ -96,30 +99,30 @@ def updateFileList(dom):
 
 
 def acConnect(dom):
-  ucuq.handleATK(dom)
+  ucuq.ATKConnect(dom, BODY)
 
+  print("Av.")
   createServos()
+  print("Ap.")
 
-  dom.inner("", BODY)
   displayMacros(dom)
   updateFileList(dom)
 
 
 def acTest():
+  reset_()
+  step = int(STEP * DEFAULT_SPEED / 2)
+  ucuq.commit()
   for servo in servos:
-    ucuq.servoMoves([(servos[servo], 15)])
-    ucuq.commit()
-    time.sleep(0.25)
-    ucuq.servoMoves([(servos[servo], -15)])
-    ucuq.commit()
-    time.sleep(0.25)
-    ucuq.servoMoves([(servos[servo], 0)])
-    ucuq.commit()
-    time.sleep(0.25)
-
+    ucuq.servoMoves([[servos[servo], 15]], step)
+    ucuq.servoMoves([[servos[servo], -15]], step)
+    ucuq.servoMoves([[servos[servo], 0]], step)
+  
+  ucuq.commit()
 
 def acReset(dom):
-  reset_(dom)
+  reset_()
+  ucuq.commit()
 
 
 def getToken(stream):
@@ -276,7 +279,7 @@ def execute(dom, string, speed = DEFAULT_SPEED):
       match item[0]:
         case "action":
           tempSpeed = item[1]["speed"]
-          ucuq.servoMoves(item[1]["moves"], ( speed if tempSpeed == None else ( int(tempSpeed) if tempSpeed != "" else DEFAULT_SPEED)) /10)
+          ucuq.servoMoves(item[1]["moves"], int(STEP * ( speed if tempSpeed == None else ( int(tempSpeed) if tempSpeed != "" else DEFAULT_SPEED))))
         case "macro":
           for _ in range(item[1]["amount"]):
             execute(dom, macros[item[1]["name"]]["Content"], speed)
@@ -296,7 +299,8 @@ def acExecute(dom, id):
     moves = macros[mark[5:]]["Content"]
 
   if dom.getValue("Reset") == "true":
-    reset_(dom)
+    reset_()
+    ucuq.commit()
 
   execute(dom, moves)
   ucuq.commit()
@@ -417,15 +421,32 @@ CALLBACKS = {
 
 command = ""
 
+def getSetupDefaultValue(key, subkey):
+  if key == HARDWARE_KEY:
+    if subkey == "offset":
+      return 0
+    elif subkey == "soft":
+      return False
+  elif key == TWEAK_KEY:
+    if subkey in ["angle", "offset"]:
+      return 0
+    elif subkey == "invert":
+      return False
+  
+  raise Exception(f"Missing value for '{key}/{subkey}' in servos setup file!")
+
+
 def getServoSetup(key, subkey, preset, motor):
   if ( key in motor ) and ( subkey in motor[key] ):
     return motor [key][subkey]
-  else:
+  elif subkey in preset[key]:
     return preset[key][subkey]
+  else:
+    return getSetupDefaultValue(key, subkey)
 
 
 def getServosSetups(target):
-  setup = {}
+  setups = {}
 
   with open("servos.json", "r") as file:
     config = json.load(file)[target]
@@ -434,46 +455,49 @@ def getServosSetups(target):
   motors = config["Motors"]
 
   for label in motors:
-    setup[label] = {}
+    setups[label] = {}
 
     motor = motors[label]
 
     for key in CONFIG_KEYS:
-      setup[label][key] = {}
+      setups[label][key] = {}
 
       if key == HARDWARE_KEY:
         mode = getServoSetup(key, HARDWARE_MODE_SUBKEY, motor, preset)
 
-        setup[label][key][HARDWARE_MODE_SUBKEY] = mode
+        setups[label][key][HARDWARE_MODE_SUBKEY] = mode
 
         for subkey in CONFIG_KEYS[key][mode]:
-          setup[label][key][subkey] = getServoSetup(key, subkey, preset, motor)
+          setups[label][key][subkey] = getServoSetup(key, subkey, preset, motor)
       else:
         for subkey in CONFIG_KEYS[key]:
-          setup[label][key][subkey] = getServoSetup(key, subkey, preset, motor)
-      
+          setups[label][key][subkey] = getServoSetup(key, subkey, preset, motor)
 
-  return setup
+  return setups
 
 def createServos():
   global servos, pca
 
   setups = getServosSetups(target := ucuq.getDeviceId())
 
-  for label in setups:
-    servo = setups[label]
+  for setup in setups:
+    servo = setups[setup]
     hardware = servo[HARDWARE_KEY]
     specs = servo[SPECS_KEY]
     tweak = servo[TWEAK_KEY]
     if hardware[HARDWARE_MODE_SUBKEY] == M_STRAIGHT:
-      pwm = ucuq.PWM(hardware["pin"], specs["freq"])
+      pwm = ucuq.PWM(hardware["pin"])
+      pwm.setFreq(specs["freq"])
     elif hardware["mode"] == "PCA":
       if not pca:
-        pca =  ucuq.PCA9685(hardware["sda"], hardware["scl"], specs["freq"])
-      pwm = ucuq.PCA9685Channel(pca, hardware["channel"])
+        i2c = ucuq.SoftI2C if hardware["soft"] else ucuq.I2C
+        pca = ucuq.PCA9685(i2c(hardware["sda"], hardware["scl"]))
+        pca.setFreq(specs["freq"])
+        pca.setOffset(hardware["offset"])
+      pwm = ucuq.PWM_PCA9685(pca, hardware["channel"])
     else:
       raise Exception("Unknown hardware mode!")
-    servos[label] = ucuq.Servo(pwm, ucuq.Servo.Specs(specs["u16_min"], specs["u16_max"], specs["range"]), tweak = ucuq.Servo.Tweak(tweak["angle"],tweak["offset"], tweak["invert"]))
+    servos[setup] = ucuq.Servo(pwm, ucuq.Servo.Specs(specs["u16_min"], specs["u16_max"], specs["range"]), tweak = ucuq.Servo.Tweak(tweak["angle"],tweak["offset"], tweak["invert"]))
 
   ucuq.commit()
 
