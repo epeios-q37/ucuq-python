@@ -8,21 +8,20 @@ from inspect import getframeinfo, stack
 
 CONFIG_FILE = ( "/home/csimon/q37/epeios/tools/ucuq/remote/wrappers/PYH/" if "Q37_EPEIOS" in os.environ else "../" ) + "ucuq.json"
 
-if not os.path.isfile(CONFIG_FILE):
-  print("Please launch the 'Config' app first to set the device to use!")
-  sys.exit(0)
-
-with open(CONFIG_FILE, "r") as config:
-  CONFIG_ = json.load(config)
+try:
+  with open(CONFIG_FILE, "r") as config:
+    CONFIG = json.load(config)
+except:
+  CONFIG = None
 
 UCUQ_DEFAULT_HOST_ = "ucuq.q37.info"
 UCUQ_DEFAULT_PORT_ = "53800"
 
-UCUQ_HOST_ = CONFIG_["Proxy"]["Host"] if "Proxy" in CONFIG_ and "Host" in CONFIG_["Proxy"] and CONFIG_["Proxy"]["Host"] else UCUQ_DEFAULT_HOST_
+UCUQ_HOST_ = CONFIG["Proxy"]["Host"] if CONFIG and "Proxy" in CONFIG and "Host" in CONFIG["Proxy"] and CONFIG["Proxy"]["Host"] else UCUQ_DEFAULT_HOST_
 
 # only way to test if the entry contains a valid int.
 try:
-  UCUQ_PORT_ = int(CONFIG_["Proxy"]["Port"])
+  UCUQ_PORT_ = int(CONFIG["Proxy"]["Port"])
 except:
   UCUQ_PORT_ = int(UCUQ_DEFAULT_PORT_)
 
@@ -159,22 +158,28 @@ def handshake_(socket):
     # print(notification)
 
 
-def ignition_(socket, token, deviceId):
+def ignition_(socket, token, deviceId, errorAsException):
   writeString_(socket, token)
   writeString_(socket, deviceId)
 
   error = readString_(socket)
 
   if error:
-    raise Error(error)
+    if errorAsException:
+      raise Error(error)
+    else:
+      return False
+    
+  return True
 
 
-def connect_(token, deviceId):
+def connect_(token, deviceId, errorAsException):
   socket = init_()
   handshake_(socket)
-  ignition_(socket, token, deviceId)
-
-  return socket
+  if ignition_(socket, token, deviceId, errorAsException):
+    return socket
+  else:
+    return None
 
 
 class Error(Exception):
@@ -204,10 +209,10 @@ def displayExitMessage_(Message):
 
 
 def handlingConfig_(token, id):
-  if CONFIG_DEVICE_ENTRY not in CONFIG_:
+  if CONFIG_DEVICE_ENTRY not in CONFIG:
     displayMissingConfigMessage_()
 
-  device = CONFIG_[CONFIG_DEVICE_ENTRY]
+  device = CONFIG[CONFIG_DEVICE_ENTRY]
 
   if token == None:
     if CONFIG_DEVICE_TOKEN_ENTRY not in device:
@@ -225,20 +230,22 @@ def handlingConfig_(token, id):
 
 
 class Device_:
-  def __init__(self, /, id = None, token = None, now = True):
+  def __init__(self, *, id = None, token = None, now = True):
     self.socket_ = None
 
     if now:
       self.connect(id, token)
 
-  def connect(self, id, token):
-    if token == None or id == None:
+  def connect(self, id = None, token = None, errorAsException = True):
+    if token == None and id == None:
       token, id = handlingConfig_(token, id)
 
-    self.token = token
-    self.id = id
+    self.token = token if token else ""
+    self.id = id if id else ""
 
-    self.socket_ = connect_(self.token, self.id)
+    self.socket_ = connect_(self.token, self.id, errorAsException = errorAsException)
+
+    return self.socket_ != None
 
   def getTokenAndDeviceId(self):
     return self.token, self.id
@@ -254,7 +261,7 @@ class Device_:
     writeStrings_(self.socket_, modules)
 
     if ( answer := readUInt_(self.socket_) ) == A_OK_:
-      pass
+      readString_(self.socket_) # For future use
     elif answer == A_ERROR_:
       result = readString_(self.socket_)
       print(f"\n>>>>>>>>>> ERROR FROM DEVICE BEGIN <<<<<<<<<<")
@@ -305,12 +312,12 @@ class Device_:
 
 
 class Device(Device_):
-  def __init__(self, /, id = None, token = None, now = True):
+  def __init__(self, *, id = None, token = None, now = True):
     self.pendingModules = ["Init-1"]
     self.handledModules = []
     self.commands = []
 
-    super().__init__(id, token, now)
+    super().__init__(id = id, token = token, now = now)
 
   def addModule(self, module):
     if not module in self.pendingModules and not module in self.handledModules:
@@ -342,18 +349,45 @@ class Device(Device_):
   
   def sleep(self, secs):
     self.addCommand(f"time.sleep({secs})")
+    
+
+def findDevice(dom):
+  for deviceId in DEVICES:
+    dom.inner("", f"<h3>Connecting to '{deviceId}'…</h3>")
+
+    device = Device(now = False)
+
+    if device.connect(token = DEVICES[deviceId], id=deviceId, errorAsException = False):
+      return device
+  
+  return None   
 
 ###############
 # COMMON PART #
 ###############
 
 
+DEVICES = {
+    "Yellow": "4e5b8f3b-1f8c-42f1-bcd4-5c9d3b1e9e12",
+    "Black": "e8c3d4f9-9f3a-4abe-ace7-1b2c3f4e5a67",
+    "Red": "6c1e5ef5-a69f-4b7b-9e3b-1f23a6c7b3c8",
+    "Blue": "ab9e1e8e-42b1-4a5f-8d5a-bb2f0f29a6c0",
+    "White": "c29f8a92-5f1e-4b4e-bd8b-8b4e0f2c3d19",
+    "Striped": "8f7d3f6c-2f1e-4fa4-9b9d-8c5e4f0a8c06",
+}
+
 def displayMissingConfigMessage_():
   displayExitMessage_("Please launch the 'Config' app first to set the device to use!")
 
 
-def setDevice(id, token = None):
-  getDevice_(id = id, token = token)
+def setDevice(*, device = None, id = None, token = None):
+  if device != None:
+    global device_
+    if id or token:
+      raise Exception("'device' can not be given together with 'id' or 'token'!")
+    device_ = device
+  else:    
+    getDevice_(id = id, token = token)
 
 
 INFO_SCRIPT_ = """
@@ -446,13 +480,29 @@ def getKitId(infos):
     return KITS_[label]
   else:
     return K_UNKNOWN
+  
 
+def ignitionCallback(data, success):
+  data["success"] = success
+  data["lock"].release()
+  
 
 def ATKConnect(dom, body, *, device = None):
   dom.inner("", "<h3>Connecting…</h3>")
   
-  infos = getInfos(device)
+  if device or CONFIG:
+    dom.inner("", "<h3>Connecting…</h3>")
+    infos = getInfos(device)
+  else:
+    device = findDevice(dom)
 
+    if not device:
+      dom.inner("", "<h3>ERROR: unable to connect to a device…</h3>")
+      raise Exception("Unable to connect to a device!")
+    else:
+      setDevice(device = device)
+      infos = getInfos(device)
+  
   dom.inner("", ATK_BODY.format(getKitLabel(infos)))
 
   dom.inner("ucuq_body", body)
