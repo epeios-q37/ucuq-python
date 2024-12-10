@@ -394,7 +394,7 @@ I_UNAME_KEY = "uname"
 INFO_SCRIPT_ = f"""
 def ucuqGetKit():
   try:
-    return CONFIG_["{I_KIT_KEY}"][getSelectorId_(SELECTOR_)]
+    return CONFIG_["{I_KIT_KEY}"][getIdentificationId_(IDENTIFICATION_)]
   except:
     return None
 
@@ -404,7 +404,7 @@ def ucuqStructToDict(obj):
 def ucuqGetInfos():
   return {{
     "{I_DEVICE_KEY}" : {{
-      "{I_DEVICE_ID_KEY}": getSelectorId_(SELECTOR_),
+      "{I_DEVICE_ID_KEY}": getIdentificationId_(IDENTIFICATION_),
       "{I_DEVICE_UNAME_KEY}": ucuqStructToDict(uos.uname())
     }},
     "{I_KIT_KEY}": ucuqGetKit(),
