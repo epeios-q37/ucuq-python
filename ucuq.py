@@ -191,70 +191,27 @@ def commit(expression=""):
 def sleep(secs):
   return getDevice_().sleep(secs)
 
-def getTokenAndDeviceId():
-  return getDevice_().getTokenAndDeviceId()
-
-def getToken():
-  return getDevice_().getToken()
-
-def getDeviceId():
-  return getDevice_().getDeviceId()
-
-CONFIG_DEVICE_ENTRY = "Device"
-CONFIG_DEVICE_TOKEN_ENTRY = "Token"
-CONFIG_DEVICE_ID_ENTRY = "Id"
-
 def displayExitMessage_(Message):
   raise Error(Message)
 
 
-def handlingConfig_(token, id):
-  if CONFIG_DEVICE_ENTRY not in CONFIG:
-    displayMissingConfigMessage_()
-
-  device = CONFIG[CONFIG_DEVICE_ENTRY]
-
-  if token == None:
-    if CONFIG_DEVICE_TOKEN_ENTRY not in device:
-      displayMissingConfigMessage_()
-
-    token = device[CONFIG_DEVICE_TOKEN_ENTRY]
-
-  if id == None:
-    if CONFIG_DEVICE_ID_ENTRY not in device:
-      displayMissingConfigMessage_()
-
-    id = device[CONFIG_DEVICE_ID_ENTRY]
-
-  return token, id
-
-
 class Device_:
-  def __init__(self, *, id = None, token = None, now = True):
+  def __init__(self, *, id = None, token = None):
     self.socket_ = None
 
-    if now:
+    if id or token:
       self.connect(id, token)
 
   def connect(self, id = None, token = None, errorAsException = True):
     if token == None and id == None:
       token, id = handlingConfig_(token, id)
 
-    self.token = token if token else ""
+    self.token = token if token else "%DEFAULT_VTOKEN%"
     self.id = id if id else ""
 
     self.socket_ = connect_(self.token, self.id, errorAsException = errorAsException)
 
     return self.socket_ != None
-
-  def getTokenAndDeviceId(self):
-    return self.token, self.id
-
-  def getToken(self):
-    return self.getTokenAndDeviceId()[0]
-
-  def getDeviceId(self):
-    return self.getTokenAndDeviceId()[1]
 
   def upload(self, modules):
     writeString_(self.socket_, R_UPLOAD_)
@@ -312,12 +269,12 @@ class Device_:
 
 
 class Device(Device_):
-  def __init__(self, *, id = None, token = None, now = True):
+  def __init__(self, *, id = None, token = None):
     self.pendingModules = ["Init-1"]
     self.handledModules = []
     self.commands = []
 
-    super().__init__(id = id, token = token, now = now)
+    super().__init__(id = id, token = token)
 
   def addModule(self, module):
     if not module in self.pendingModules and not module in self.handledModules:
@@ -352,12 +309,12 @@ class Device(Device_):
     
 
 def findDevice(dom):
-  for deviceId in DEVICES:
+  for deviceId in VTOKENS:
     dom.inner("", f"<h3>Connecting to '{deviceId}'…</h3>")
 
-    device = Device(now = False)
+    device = Device()
 
-    if device.connect(token = DEVICES[deviceId], id=deviceId, errorAsException = False):
+    if device.connect(token = VTOKENS[deviceId], id=deviceId, errorAsException = False):
       return device
   
   return None   
@@ -367,20 +324,52 @@ def findDevice(dom):
 ###############
 
 
-DEVICES = {
-    "Yellow": "4e5b8f3b-1f8c-42f1-bcd4-5c9d3b1e9e12",
+# Keys
+K_DEVICE = "Device"
+K_DEVICE_TOKEN = "Token"
+K_DEVICE_ID = "Id"
+
+VTOKENS = {
     "Black": "e8c3d4f9-9f3a-4abe-ace7-1b2c3f4e5a67",
+    "White": "c29f8a92-5f1e-4b4e-bd8b-8b4e0f2c3d19",
+    "Yellow": "4e5b8f3b-1f8c-42f1-bcd4-5c9d3b1e9e12",
     "Red": "6c1e5ef5-a69f-4b7b-9e3b-1f23a6c7b3c8",
     "Blue": "ab9e1e8e-42b1-4a5f-8d5a-bb2f0f29a6c0",
-    "White": "c29f8a92-5f1e-4b4e-bd8b-8b4e0f2c3d19",
     "Striped": "8f7d3f6c-2f1e-4fa4-9b9d-8c5e4f0a8c06",
 }
+
+ALL_DEVICES_VTOKEN = "84210c27-cdf8-438f-8641-a2e12380c2cf"
+
 
 def displayMissingConfigMessage_():
   displayExitMessage_("Please launch the 'Config' app first to set the device to use!")
 
 
-def setDevice(*, device = None, id = None, token = None):
+def handlingConfig_(token, id):
+  if not CONFIG:
+    displayMissingConfigMessage_()
+
+  if K_DEVICE not in CONFIG:
+    displayMissingConfigMessage_()
+
+  device = CONFIG[K_DEVICE]
+
+  if not token:
+    if K_DEVICE_TOKEN not in device:
+      displayMissingConfigMessage_()
+
+    token = device[K_DEVICE_TOKEN]
+
+  if not id:
+    if K_DEVICE_ID not in device:
+      displayMissingConfigMessage_()
+
+    id = device[K_DEVICE_ID]
+
+  return token, id
+
+
+def setDevice(id = None, *, device = None, token = None):
   if device != None:
     global device_
     if id or token:
@@ -390,25 +379,36 @@ def setDevice(*, device = None, id = None, token = None):
     getDevice_(id = id, token = token)
 
 
-INFO_SCRIPT_ = """
-def ucuqGetKit(): 
-  kit = CONFIG_["Kit"]
+# Infos keys and subkeys
+I_KIT_KEY = "Kit"
+I_DEVICE_KEY = "Device"
+I_DEVICE_ID_KEY = "Id"
+I_DEVICE_UNAME_KEY = "uname"
+I_KIT_BRAND_KEY = "brand"
+I_KIT_MODEL_KEY = "model"
+I_KIT_VARIANT_KEY = "variant"
+I_KIT_LABEL_KEY = "label"
+I_UNAME_KEY = "uname"
 
-  id = getSelectorId_(SELECTOR_)
 
-  if id in kit:
-    return kit[id]
-  else:
-    return kit["None"]
+INFO_SCRIPT_ = f"""
+def ucuqGetKit():
+  try:
+    return CONFIG_["{I_KIT_KEY}"][getSelectorId_(SELECTOR_)]
+  except:
+    return None
 
 def ucuqStructToDict(obj):
-    return {attr: getattr(obj, attr) for attr in dir(obj) if not attr.startswith('__')}
+    return {{attr: getattr(obj, attr) for attr in dir(obj) if not attr.startswith('__')}}
 
 def ucuqGetInfos():
-  return {
-    "Kit": ucuqGetKit(),
-    "uname": ucuqStructToDict(uos.uname())
-  }
+  return {{
+    "{I_DEVICE_KEY}" : {{
+      "{I_DEVICE_ID_KEY}": getSelectorId_(SELECTOR_),
+      "{I_DEVICE_UNAME_KEY}": ucuqStructToDict(uos.uname())
+    }},
+    "{I_KIT_KEY}": ucuqGetKit(),
+  }}
 """
 
 ATK_STYLE = """
@@ -439,19 +439,11 @@ ATK_BODY = """
 </div>
 """
 
+# Handled kits.
 K_UNKNOWN = 0
 K_BIPEDAL = 1
 K_DOG = 2
 K_DIY = 3
-
-# Infos keys and subkeys
-
-I_KIT_KEY = "Kit"
-I_KIT_BRAND_KEY = "brand"
-I_KIT_MODEL_KEY = "model"
-I_KIT_VARIANT_KEY = "variant"
-I_KIT_LABEL_KEY = "label"
-I_UNAME_KEY = "uname"
 
 KITS_ = {
   "Freenove/Bipedal/RPiPicoW": K_BIPEDAL,
@@ -470,7 +462,10 @@ def getInfos(device = None):
 def getKitLabel(infos):
   kit = infos[I_KIT_KEY]
 
-  return f"{kit[I_KIT_BRAND_KEY]}/{kit[I_KIT_MODEL_KEY]}/{kit[I_KIT_VARIANT_KEY]}"
+  if kit:
+    return f"{kit[I_KIT_BRAND_KEY]}/{kit[I_KIT_MODEL_KEY]}/{kit[I_KIT_VARIANT_KEY]}"
+  else:
+    return "Undefined"
 
 
 def getKitId(infos):
@@ -482,9 +477,8 @@ def getKitId(infos):
     return K_UNKNOWN
   
 
-def ignitionCallback(data, success):
-  data["success"] = success
-  data["lock"].release()
+def getDeviceId(infos):
+  return infos[I_DEVICE_KEY][I_DEVICE_ID_KEY]
   
 
 def ATKConnect(dom, body, *, device = None):
@@ -492,16 +486,16 @@ def ATKConnect(dom, body, *, device = None):
   
   if device or CONFIG:
     dom.inner("", "<h3>Connecting…</h3>")
-    infos = getInfos(device)
+    device = getDevice_(device)
   else:
     device = findDevice(dom)
 
-    if not device:
-      dom.inner("", "<h3>ERROR: unable to connect to a device…</h3>")
-      raise Exception("Unable to connect to a device!")
-    else:
-      setDevice(device = device)
-      infos = getInfos(device)
+  if not device:
+    dom.inner("", "<h3>ERROR: Please launch the 'Config' application!</h3>")
+    raise SystemExit("Unable to connect to a device!")
+  else:
+    setDevice(device = device)
+    infos = getInfos(device)
   
   dom.inner("", ATK_BODY.format(getKitLabel(infos)))
 
@@ -519,8 +513,7 @@ def ATKConnect(dom, body, *, device = None):
 
 
 def getDevice_(device = None, *, id = None, token = None):
-
-  if device  and ( token or id):
+  if device and ( token or id):
     displayExitMessage_("'device' can not be given together with 'token' or 'id'!")
 
   if device == None:
@@ -530,10 +523,12 @@ def getDevice_(device = None, *, id = None, token = None):
       device_ = Device(id = id, token = token)
     elif device_ == None:
       device_ = Device()
+      device_.connect()
     
     return device_
   else:
     return device
+
 
 def addCommand(command, /,device = None):
   getDevice_(device).addCommand(command)
@@ -586,9 +581,9 @@ class GPIO(Core_):
     super().__init__(device)
 
     if pin:
-      self.init(pin)
+      self.init(pin, device)
 
-  def init(self, pin, device):
+  def init(self, pin, device = None):
     self.pin = f'"{pin}"' if isinstance(pin,str) else pin
 
     super().init("GPIO-1", f"GPIO({self.pin})", device)
@@ -709,7 +704,7 @@ class PWM(Core_):
 
 
   def setU16(self, u16):
-    self.addMethods(f"duty_u16({u16})")
+    return self.addMethods(f"duty_u16({u16})")
 
 
   def getNS(self):
@@ -717,7 +712,7 @@ class PWM(Core_):
 
 
   def setNS(self, ns):
-    self.addMethods(f"duty_ns({ns})")
+    return self.addMethods(f"duty_ns({ns})")
 
 
   def getFreq(self):
@@ -725,11 +720,11 @@ class PWM(Core_):
 
 
   def setFreq(self, freq):
-    self.addMethods(f"freq({freq})")
+    return self.addMethods(f"freq({freq})")
 
 
   def deinit(self):
-    self.addMethods(f"deinit()")
+    return self.addMethods(f"deinit()")
 
 
 class PCA9685(Core_):
