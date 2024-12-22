@@ -447,14 +447,18 @@ ATK_BODY = """
 K_UNKNOWN = 0
 K_BIPEDAL = 1
 K_DOG = 2
-K_DIY = 3
-K_WOKWI = 4
+K_DIY_DISPLAYS = 3
+K_DIY_SERVOS = 4
+K_WOKWI_DISPLAYS = 5
+K_WOKWI_SERVOS = 6
 
 KITS_ = {
   "Freenove/Bipedal/RPiPicoW": K_BIPEDAL,
   "Freenove/Dog/ESP32": K_DOG,
-  "q37.info/ESP32-C3FH4/1": K_DIY,
-  "q37.info/Wokwi/1": K_WOKWI,
+  "q37.info/DIY/Displays": K_DIY_DISPLAYS,
+  "q37.info/DIY/Servos": K_DIY_SERVOS,
+  "q37.info/Wokwi/Displays": K_WOKWI_DISPLAYS,
+  "q37.info/Wokwi/Servos": K_WOKWI_SERVOS,
 }
 
 def getInfos(device = None):
@@ -538,6 +542,14 @@ def getDevice_(device = None, *, id = None, token = None):
 
 def addCommand(command, /,device = None):
   getDevice_(device).addCommand(command)
+
+
+# does absolutely nothing whichever method is called.
+class Nothing:
+  def __getattr__(self, name):
+    def doNothing(*args, **kwargs):
+      return self
+    return doNothing
 
 
 class Core_:
@@ -636,28 +648,32 @@ class WS2812(Core_):
     self.addMethods(f"write()")
 
 class I2C_Core_(Core_):
-  def __init__(self, sda = None, scl = None, device = None):
+  def __init__(self, sda = None, scl = None, *, device = None, soft = None):
     super().__init__(device)
 
     if sda == None != scl == None:
       raise Exception("None or both of sda/scl must be given!")
     elif sda != None:
-      self.init(sda, scl, device)
+      self.init(sda, scl, device = device, soft = soft)
 
   def scan(self):
     return (commit(f"{self.getObject()}.scan()"))
 
 
 class I2C(I2C_Core_):
-  def init(self, sda, scl, device = None):
-    super().init("I2C-1", f"machine.I2C(0, sda=machine.Pin({sda}), scl=machine.Pin({scl}))", device)
+  def init(self, sda, scl, *, device = None, soft = False):
+    if soft == None:
+      soft = False
 
+    super().init("I2C-1", f"machine.{'Soft' if soft else ''}I2C({'0,' if not soft else ''} sda=machine.Pin({sda}), scl=machine.Pin({scl}))", device = device)
 
-class SoftI2C(I2C_Core_):
-  def init(self, sda, scl, device = None):
-    super().init("I2C-1", f"machine.SoftI2C(sda=machine.Pin({sda}), scl=machine.Pin({scl}))", device)
+class SoftI2C(I2C):
+  def init(self, sda, scl, *, device = None, soft = True):
+    if soft == None:
+      soft = True
+
+    super().init(sda, scl, device = device, soft = soft)
   
-
 class HT16K33(Core_):
   def __init__(self, i2c = None, /, addr = None):
     super().__init__()

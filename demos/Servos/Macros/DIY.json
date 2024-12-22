@@ -1,30 +1,26 @@
 {
-  "_": {
-    "Description": "Internal use",
-    "Content": "a:b:c:d a-90 b+90 c-90 d+90 a+90:b-90:c+90:d-90 a+45:d-45 a:d:b-45:c+45 b+45:c-45 a+45:b+90:c-90:d-45 a+90:d-90 a+45:b-45:c:d+45 a:b-45:c+45:d a+45:b-45:c-45:d a-45:b:c+45:d+45 $Rest"
-  },
-  "L2R": {
+"L2R": {
     "Description": "Left to right",
-    "Content": "a-90:b-90:c-90:d-90"
+    "Content": "l-90:L-90:R-90:r-90"
   },
   "R2L": {
     "Description": "Right to left",
-    "Content": "a+90:b+90:c+90:d+90"
+    "Content": "l+90:L+90:R+90:r+90"
   },
   "Rest": {
     "Description": "Resting position",
-    "Content": "a+90:b-90:c+90:d-90"
+    "Content": "l+90:L-90:R+90:r-90"
   },
   "R2L2R": {
     "Description": "Right to left to right",
-    "Content": "a-90:b-90:c-90:d-90: %10 a-45 a:b-45 a+45:b:c-45 a+90:b+45:c:d-45 a+45:b+90:c+45:d a:b+45:c+90:d+45 a-45:b:c+45:d+90 a-90:b-45:c:d+45 b-90:c-45:d c-90:d-45 d-90"
+    "Content": "l-90:L-90:R-90:r-90: %10 l-45 l:L-45 l+45:L:R-45 l+90:L+45:R:r-45 l+45:L+90:R+45:r l:L+45:R+90:r+45 l-45:L:R+45:r+90 l-90:L-45:R:r+45 L-90:R-45:r R-90:r-45 r-90"
   },
   "L2R2L": {
     "Description": "Left to right to left",
-    "Content": "a+90:b+90:c+90:d+90: %10 a+45 a:b+45 a-45:b:c+45 a-90:b-45:c:d+45 a-45:b-90:c-45:d a:b-45:c-90:d-45 a+45:b:c-45:d-90 a+90:b+45:c:d-45 b+90:c+45:d c+90:d+45 d+90"
+    "Content": "l+90:L+90:R+90:r+90: %10 l+45 l:L+45 l-45:L:R+45 l-90:L-45:R:r+45 l-45:L-90:R-45:r l:L-45:R-90:r-45 l+45:L:R-45:r-90 l+90:L+45:R:r-45 L+90:R+45:r R+90:r+45 r+90"
   },
   "Misc": {
     "Description": "Divers",
-    "Content": "a:b:c:d a-90 b+90 c-90 d+90 a+90:b-90:c+90:d-90 a+45:d-45 a:d:b-45:c+45 b+45:c-45 a+45:b+90:c-90:d-45 a+90:d-90 a+45:b-45:c:d+45 a:b-45:c+45:d a+45:b-45:c-45:d a-45:b:c+45:d+45 $Rest"
+    "Content": "l:L:R:r l-90 L+90 R-90 r+90 l+90:L-90:R+90:r-90 l+45:r-45 l:r:L-45:R+45 L+45:R-45 l+45:L+90:R-90:r-45 l+90:r-90 l+45:L-45:R:r+45 l:L-45:R+45:r l+45:L-45:R-45:r l-45:L:R+45:r+45 $Rest"
   }
 }
