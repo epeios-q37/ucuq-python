@@ -1,13 +1,14 @@
-import os, sys, random, json
+import os, sys
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.extend(("../..","../../atlastk.zip"))
 
-import atlastk, ucuq
-RB_MAX = 30
+import atlastk, ucuq, random, json
+
 RB_DELAY = .05
 
 ws2812 = None
+ws2812Limiter = 0
 onDuty = False
 oledDIY = None
 
@@ -16,10 +17,13 @@ P_USER = "User"
 P_BIPEDAL = "Bipedal"
 P_DOG = "Dog"
 P_DIY = "DIY"
+P_WOKWI = "Wokwi"
 
 SPOKEN_COLORS =  {
   "rouge": [255, 0, 0],
   "vert": [0, 255, 0],
+  "verre": [0, 255, 0],
+  "verte": [0, 255, 0],
   "bleu": [0, 0, 255],
   "jaune": [255, 255, 0],
   "cyan": [0, 255, 255],
@@ -35,17 +39,21 @@ SPOKEN_COLORS =  {
   "beige": [255, 212, 170]
 }
 
+
 def rainbow():
   v =  random.randint(0, 5)
-  for i in range(0, RB_MAX * 7, 1+int(RB_MAX/20)):
-    ws2812.fill(ucuq.rbShadeFade(v, i, RB_MAX)).write()
+  i = 0
+  while i < 7 * ws2812Limiter:
+    ws2812.fill(ucuq.rbShadeFade(v, int(i), ws2812Limiter)).write()
     ucuq.sleep(RB_DELAY)
+    i += ws2812Limiter / 20
   ws2812.fill([0]*3).write()
   ucuq.commit() 
 
 
 def convert_(hex):
   return int(int(hex,16) * 100 / 256)
+
 
 def getValues_(target, R, G, B):
   return {
@@ -54,14 +62,18 @@ def getValues_(target, R, G, B):
     target + "B": B
   }
 
+
 def getNValues_(R, G, B):
   return getValues_("N", R, G, B)
+
 
 def getSValues_(R, G, B):
   return getValues_("S", R, G, B)
 
+
 def getAllValues_(R, G, B):
   return getNValues_(R, G, B) | getSValues_(R, G, B)
+
 
 def update_(r, g, b):
   if ws2812:
@@ -69,6 +81,7 @@ def update_(r, g, b):
     if oledDIY:
       oledDIY.fill(0).text(f"R: {r}", 0, 5).text(f"G: {g}", 0, 20).text(f"B: {b}", 0, 35).show()
     ucuq.commit()
+
 
 def launch(dom, pin, count):
   global ws2812, onDuty
@@ -94,32 +107,46 @@ def updateUI(dom, onDuty):
 
   if onDuty:
     dom.enableElements(ids)
-    dom.disableElement("HardwareBox")
+    dom.disableElements(["HardwareBox", "Preset"])
     dom.setValue("Switch", "true")
   else:
     dom.disableElements(ids)
-    dom.enableElement("HardwareBox")
+    dom.enableElements(["HardwareBox", "Preset"])
     dom.setValue("Switch", "false")
 
     preset = dom.getValue("Preset")
 
     if preset == P_BIPEDAL:
       dom.setValues({
-        "Pin": 16,
-        "Count": 4
+        "Pin": ucuq.H_BIPEDAL["RGB"]["Pin"],
+        "Count": ucuq.H_BIPEDAL["RGB"]["Count"],
+        "Offset": ucuq.H_["RGB"]["Offset"],
+        "Limiter": ucuq.H_["RGB"]["Limiter"],
       })
     elif preset == P_DOG:
-        dom.setValues({
-          "Pin": 0,
-          "Count": 4
-        })
+      dom.setValues({
+        "Pin": ucuq.H_DOG["RGB"]["Pin"],
+        "Count": ucuq.H_DOG["RGB"]["Count"],
+        "Offset": ucuq.H_DOG["RGB"]["Offset"],
+        "Limiter": ucuq.H_DOG["RGB"]["Limiter"],
+      })
     elif preset == P_DIY:
-        dom.setValues({
-          "Pin": 3,
-          "Count": 8
-        })
+      dom.setValues({
+        "Pin": ucuq.H_DIY_DISPLAYS["Ring"]["Pin"],
+        "Count": ucuq.H_DIY_DISPLAYS["Ring"]["Count"],
+        "Offset": ucuq.H_DIY_DISPLAYS["Ring"]["Offset"],
+        "Limiter": ucuq.H_DIY_DISPLAYS["Ring"]["Limiter"],
+      })
+    elif preset == P_WOKWI:
+      dom.setValues({
+        "Pin": ucuq.H_WOKWI_DISPLAYS["Ring"]["Pin"],
+        "Count": ucuq.H_WOKWI_DISPLAYS["Ring"]["Count"],
+        "Offset": ucuq.H_WOKWI_DISPLAYS["Ring"]["Offset"],
+        "Limiter": ucuq.H_WOKWI_DISPLAYS["Ring"]["Limiter"],
+      })
     elif preset != P_USER:
       raise Exception("Unknown preset!")
+
 
 def acConnect(dom):
   global oledDIY
@@ -133,18 +160,22 @@ def acConnect(dom):
       dom.setValue("Preset", P_BIPEDAL)
     elif id == ucuq.K_DOG:
       dom.setValue("Preset", P_DOG)
-    elif id == ucuq.K_DIY:
-      oledDIY = ucuq.SSD1306_I2C(128, 64, ucuq.SoftI2C(0, 1))
+    elif id == ucuq.K_DIY_DISPLAYS:
+      oledDIY = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(ucuq.H_DIY_DISPLAYS["OLED"]["SDA"], ucuq.H_DIY_DISPLAYS["OLED"]["SCL"], soft = ucuq.H_DIY_DISPLAYS["OLED"]["Soft"]))
       dom.setValue("Preset", P_DIY)
+    elif id == ucuq.K_WOKWI_DISPLAYS:
+      oledDIY = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(ucuq.H_WOKWI_DISPLAYS["OLED"]["SDA"], ucuq.H_WOKWI_DISPLAYS["OLED"]["SCL"], soft = ucuq.H_WOKWI_DISPLAYS["OLED"]["Soft"]))
+      dom.setValue("Preset", P_WOKWI)
 
   updateUI(dom, False)
+
 
 def acPreset(dom):
   updateUI(dom, onDuty)
 
 
 def acSwitch(dom, id):
-  global onDuty
+  global onDuty, ws2812Limiter
 
   state = (dom.getValue(id)) == "true"
 
@@ -152,7 +183,7 @@ def acSwitch(dom, id):
     updateUI(dom, state)
 
     try:
-      pin, count = (int(value.strip()) for value in (dom.getValues(["Pin", "Count"])).values())
+      pin, count, ws2812Limiter = (int(value.strip()) for value in (dom.getValues(["Pin", "Count", "Limiter"])).values())
     except:
       dom.alert("No or bad value for Pin/Count!")
       updateUI(dom, False)
@@ -172,11 +203,13 @@ def acSelect(dom):
   else:
     dom.executeVoid(f"colorWheel.rgb = [0,0,0]")  
 
+
 def acSlide(dom):
   (R,G,B) = (dom.getValues(["SR", "SG", "SB"])).values()
   dom.setValues(getNValues_(R, G, B))
   dom.executeVoid(f"colorWheel.rgb = [{R},{G},{B}]")
   update_(R, G, B)
+
 
 def acAdjust(dom):
   (R,G,B) = (dom.getValues(["NR", "NG", "NB"])).values()
@@ -187,6 +220,7 @@ def acAdjust(dom):
 
 def acListen(dom):
   dom.executeVoid("launch()")
+
   
 def acDisplay(dom):
   colors = json.loads(dom.getValue("Color"))
@@ -194,7 +228,7 @@ def acDisplay(dom):
   for color in colors:
     color = color.lower()
     if color in SPOKEN_COLORS:
-      r, g, b = [int(RB_MAX * c / 255) for c in SPOKEN_COLORS[color]]
+      r, g, b = [ws2812Limiter * c // 255 for c in SPOKEN_COLORS[color]]
       dom.setValues(getAllValues_(r, g, b))
       dom.executeVoid(f"colorWheel.rgb = [{r},{g},{b}]")
       update_(r, g, b)
@@ -203,12 +237,15 @@ def acDisplay(dom):
         ucuq.commit()
       break;
 
+
 def acRainbow(dom):
   reset(dom)
   rainbow()
 
+
 def acReset(dom):
   reset(dom)
+
 
 CALLBACKS = {
   "": acConnect,
@@ -223,6 +260,7 @@ CALLBACKS = {
   "Reset": acReset
 }
 
+
 with open('Body.html', 'r') as file:
   BODY = file.read()
 
@@ -230,3 +268,4 @@ with open('Head.html', 'r') as file:
   HEAD = file.read()
 
 atlastk.launch(CALLBACKS, headContent=HEAD)
+

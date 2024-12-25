@@ -72,11 +72,9 @@ SETTINGS = {
     W_WIDTH: "1.5"
   },
   P_DIY: {
-    W_MODE: M_PCA9685,
+    W_MODE: M_STRAIGHT,
     W_SOFT: "false",
-    W_SDA: "8",
-    W_SCL: "9",
-    W_OFFSET: "8",
+    W_PIN: "34",
     W_WIDTH: "1.5"
   }
 }
@@ -86,7 +84,7 @@ PRESETS = {
   ucuq.K_UNKNOWN: P_USER,
   ucuq.K_BIPEDAL: P_BIPEDAL,
   ucuq.K_DOG: P_DOG,
-  ucuq.K_DIY: P_DIY
+  ucuq.K_DIY_SERVOS: P_DIY
 }
 
 
@@ -413,3 +411,4 @@ with open('Head.html', 'r') as file:
   HEAD = file.read()
 
 atlastk.launch(CALLBACKS, headContent=HEAD)
+

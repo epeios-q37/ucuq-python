@@ -259,7 +259,7 @@ def acMirror(dom, id):
 
   if state:
     if ( dom.confirm("Please do not confirm unless you know exactly what you are doing!") ):
-      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.SoftI2C(0, 1, ucuq.Device(id="Yellow")))
+      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(8, 9, device = ucuq.Device(id="Yellow")))
     else:
       dom.setValue(id, "false")
   else:
@@ -303,6 +303,7 @@ MATRICES = (
   "00003ffc40025ffa2ff417e8081007e",
 )
 
+
 with open('Body.html', 'r') as file:
   BODY = file.read()
 
@@ -310,3 +311,4 @@ with open('Head.html', 'r') as file:
   HEAD = file.read()
 
 atlastk.launch(CALLBACKS, headContent=HEAD)
+
