@@ -465,17 +465,19 @@ KITS_ = {
 
 H_BIPEDAL = {
   "RGB": {
-    "Pin": 0,
+    "Pin": 16,
     "Count": 4,
     "Limiter": 30,
+    "Offset": 0,
   }
 }
 
 H_DOG = {
   "RGB": {
-    "Pin": 16,
+    "Pin": 0,
     "Count": 4,
     "Limiter": 30,
+    "Offset": 0,
   }
 }
 
