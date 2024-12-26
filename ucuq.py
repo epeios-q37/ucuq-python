@@ -206,7 +206,7 @@ class Device_:
     if token == None and id == None:
       token, id = handlingConfig_(token, id)
 
-    self.token = token if token else "%DEFAULT_VTOKEN%"
+    self.token = token if token else ALL_DEVICE_VTOKEN
     self.id = id if id else ""
 
     self.socket_ = connect_(self.token, self.id, errorAsException = errorAsException)
@@ -308,16 +308,13 @@ class Device(Device_):
     self.addCommand(f"time.sleep({secs})")
     
 
-def findDevice(dom):
-  for deviceId in VTOKENS:
-    dom.inner("", f"<h3>Connecting to '{deviceId}'…</h3>")
+def getDemoDevice():
+  device = Device()
 
-    device = Device()
-
-    if device.connect(token = VTOKENS[deviceId], id=deviceId, errorAsException = False):
-      return device
-  
-  return None   
+  if device.connect(token = ONE_DEVICE_VTOKEN, errorAsException = False):
+    return device
+  else:
+    return None   
 
 ###############
 # COMMON PART #
@@ -329,17 +326,8 @@ K_DEVICE = "Device"
 K_DEVICE_TOKEN = "Token"
 K_DEVICE_ID = "Id"
 
-VTOKENS = {
-    "Black": "e8c3d4f9-9f3a-4abe-ace7-1b2c3f4e5a67",
-    "White": "c29f8a92-5f1e-4b4e-bd8b-8b4e0f2c3d19",
-    "Yellow": "4e5b8f3b-1f8c-42f1-bcd4-5c9d3b1e9e12",
-    "Red": "6c1e5ef5-a69f-4b7b-9e3b-1f23a6c7b3c8",
-    "Blue": "ab9e1e8e-42b1-4a5f-8d5a-bb2f0f29a6c0",
-    "Striped": "8f7d3f6c-2f1e-4fa4-9b9d-8c5e4f0a8c06",
-}
-
+ONE_DEVICE_VTOKEN = "9a53b804-165c-4b82-9975-506a43ed146f"
 ALL_DEVICES_VTOKEN = "84210c27-cdf8-438f-8641-a2e12380c2cf"
-
 
 def displayMissingConfigMessage_():
   displayExitMessage_("Please launch the 'Config' app first to set the device to use!")
@@ -437,7 +425,7 @@ ATK_STYLE = """
 
 ATK_BODY = """
 <div style="display: flex; justify-content: center;" class="ucuq">
-  <h3>'{}'</h3>
+  <h3>'{}' (<em>{}</em>)</h3>
 </div>
 <div id="ucuq_body">
 </div>
@@ -559,10 +547,9 @@ def ATKConnect(dom, body, *, device = None):
   dom.inner("", "<h3>Connecting…</h3>")
   
   if device or CONFIG:
-    dom.inner("", "<h3>Connecting…</h3>")
     device = getDevice_(device)
   else:
-    device = findDevice(dom)
+    device = getDemoDevice()
 
   if not device:
     dom.inner("", "<h3>ERROR: Please launch the 'Config' application!</h3>")
@@ -571,7 +558,7 @@ def ATKConnect(dom, body, *, device = None):
     setDevice(device = device)
     infos = getInfos(device)
   
-  dom.inner("", ATK_BODY.format(getKitLabel(infos)))
+  dom.inner("", ATK_BODY.format(getKitLabel(infos), getDeviceId(infos)))
 
   dom.inner("ucuq_body", body)
 
