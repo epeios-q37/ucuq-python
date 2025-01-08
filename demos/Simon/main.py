@@ -3,8 +3,6 @@ import os, sys
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.extend(("../..","../../atlastk.zip"))
 
-LISTEN = False
-
 import atlastk, ucuq, json, math, random
 
 onDuty = False
@@ -25,6 +23,28 @@ DIGITS = [
   0x3a317462e,
   0x3a317862e,
 ]
+
+EN = {
+  0: "Welcome to",
+  1: "Simon's game!",
+  2: "Reproduce the",
+  3: "sequence...",
+  4: "Well done!",
+  5: "Game over! Click",
+  6: "New to restart!",
+}
+
+FR = {
+  0: "Bienvenue au jeu",
+  1: "'Simon' !",
+  2: "Reproduire la",
+  3: "sequence...",
+  4: "Bravo !",
+  5: "Perdu ! 'New'",
+  6: "pour rejouer !",
+}
+
+STRINGS = FR
 
 OLED_COEFF = 8
 ringCount = 0
@@ -60,7 +80,7 @@ W_B_G = "G"
 W_B_B = "B"
 W_B_Y = "Y"
 W_B_NEW = "New"
-W_B_LISTEN = "Listen"
+W_B_REPEAT = "Repeat"
 
 def getValuesOfVarsBeginningWith(prefix):
   return [value for var, value in globals().items() if var.startswith(prefix)]
@@ -220,7 +240,6 @@ def playJingle(jingle):
   prevButton = ""
   prevPrevButton = ""
   number(None)
-  ucuq.commit()
   for n in jingle:
     while True:
       button = random.choice(list(BUTTONS.keys())) 
@@ -236,22 +255,19 @@ def updateHardwareUI(dom):
   dom.setValues(SETTINGS[dom.getValue(W_H_PRESET)])
 
 
-def acConnect(dom):
+def atkConnect(dom):
   preset = PRESETS[ucuq.getKitId(ucuq.ATKConnect(dom, BODY))]
 
   dom.setValue(W_H_PRESET, preset)
 
   updateHardwareUI(dom)
 
-  if not LISTEN:
-    dom.setAttribute("Listen","style", "display: none;")
 
-
-def acPreset(dom):
+def atkPreset(dom):
   updateHardwareUI(dom)
 
 
-def acSwitch(dom, id):
+def atkSwitch(dom, id):
   global onDuty, cRing, cOLED, cBuzzer, cLCD, ringCount, ringOffset, ringLimiter
 
   if dom.getValue(id) == "true":
@@ -288,8 +304,9 @@ def acSwitch(dom, id):
     dom.enableElements(HARDWARE_WIDGETS_WITHOUT_SWITCH)
 
 
-def acListen(dom):
-  dom.executeVoid("launch()")
+def atkRepeat():
+  play(seq)
+  ucuq.commit()
 
 
 def display(button):
@@ -312,7 +329,7 @@ def play(sequence):
     seq += s
 
   
-def acDisplay(dom):
+def atkDisplay(dom):
   colors = json.loads(dom.getValue("Color"))
 
   for color in colors:
@@ -323,29 +340,29 @@ def acDisplay(dom):
       ucuq.commit()
 
 
-def acNew():
+def atkNew():
   global seq
 
   cLCD.clear()\
   .backlightOn()\
   .moveTo(0,0)\
-  .putString("Welcome to")\
+  .putString(STRINGS[0])\
   .moveTo(0,1)\
-  .putString("Simon's game!")
+  .putString(STRINGS[1])
 
   playJingle(LAUNCH_JINGLE)
   ucuq.sleep(0.5)
   cLCD.clear()
 
   seq = random.choice("RGBY")
-  cLCD.clear().moveTo(0,0).putString("Reproduce the").moveTo(0,1).putString("sequence...")
+  cLCD.clear().moveTo(0,0).putString(STRINGS[2]).moveTo(0,1).putString(STRINGS[3])
   number(len(seq))
   ucuq.sleep(.75)
   play(seq)
   ucuq.commit()
 
 
-def acClick(dom, id):
+def atkClick(dom, id):
   global seq, userSeq
 
   if not seq:
@@ -358,20 +375,21 @@ def acClick(dom, id):
 
   if seq.startswith(userSeq):
     if len(seq) <= len(userSeq):
-      cLCD.moveTo(0,0).putString("Well done!")
+      cLCD.moveTo(0,0).putString(STRINGS[4])
       playJingle(SUCCESS_JINGLE)
       ucuq.sleep(0.5)
       cLCD.clear()
+      ucuq.commit()
       userSeq = ""
       seq += random.choice("RGBY")
-      cLCD.clear().moveTo(0,0).putString("Reproduce the").moveTo(0,1).putString("sequence...")
+      cLCD.clear().moveTo(0,0).putString(STRINGS[2]).moveTo(0,1).putString(STRINGS[3])
       number(len(seq))
       ucuq.sleep(.75)
       play(seq)
     else:
       cLCD.backlightOff()
   else:
-    cLCD.moveTo(0,0).putString("Game over! Click").moveTo(0,1).putString("New to restart!")
+    cLCD.moveTo(0,0).putString(STRINGS[5]).moveTo(0,1).putString(STRINGS[6])
     number(len(seq))
     cBuzzer.setFreq(30).setU16(50000)
     ucuq.sleep(1)
@@ -382,22 +400,11 @@ def acClick(dom, id):
 
   ucuq.commit()
 
-
-CALLBACKS = {
-  "": acConnect,
-  "Preset": acPreset,
-  "Switch": acSwitch,
-  "Listen": acListen,
-  "Display": acDisplay,
-  "New": acNew,
-  "Click": acClick,
-}
-
 with open('Body.html', 'r') as file:
   BODY = file.read()
 
 with open('Head.html', 'r') as file:
   HEAD = file.read()
 
-atlastk.launch(CALLBACKS, headContent=HEAD)
+atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD)
 
