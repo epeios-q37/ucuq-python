@@ -491,6 +491,13 @@ H_DIY_DISPLAYS = {
   },
 }
 
+H_DIY_SERVOS = {
+  "Servos": {
+    "Mode": "Straight",
+    "Pins": [12, 13, 14, 15]
+  }
+}
+
 H_WOKWI_DISPLAYS = {
   "Ring": {
     "Pin": 15,
@@ -893,7 +900,7 @@ class PWM_PCA9685(Core_):
     self.pca.setPrescale(value)
   
 
-class LCD_PCF8574(Core_):
+class HD44780_I2C(Core_):
   def __init__(self, i2c, num_lines, num_columns,/,addr = None):
     super().__init__()
 
@@ -903,7 +910,7 @@ class LCD_PCF8574(Core_):
       raise Exception("addr can not be given without i2c!")
 
   def init(self, i2c, num_lines, num_columns, addr = None):
-    return super().init("LCD_PCF8574-1", f"LCD_PCF8574({i2c.getObject()},{num_lines},{num_columns},{addr})", i2c.getDevice())
+    return super().init("HD44780_I2C-1", f"HD44780_I2C({i2c.getObject()},{num_lines},{num_columns},{addr})", i2c.getDevice())
 
   def moveTo(self, x, y):
     return self.addMethods(f"move_to({x},{y})")
