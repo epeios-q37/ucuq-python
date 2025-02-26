@@ -1,5 +1,5 @@
 {
-  "Black": {
+  "Charlie": {
     "Preset": {
       "Hardware": {
         "mode": "Straight"
@@ -46,6 +46,58 @@
     }
   },
   "White": {
+    "Preset": {
+      "Hardware": {
+        "mode": "Straight"
+      },
+      "Specs": {
+        "freq": 50,
+        "u16_min": 1639,
+        "u16_max": 8192,
+        "range": 180
+      },
+      "Tweak": {
+        "angle": 90,
+        "offset": 0,
+        "invert": false
+      }
+    },
+    "Motors": {
+      "L": {
+        "Hardware": {
+          "pin": 10
+        },
+        "Tweak": {
+          "offset": 85
+        }
+      },
+      "l": {
+        "Hardware": {
+          "pin": 11
+        },
+        "Tweak": {
+          "offset": -15
+        }
+      },
+      "R": {
+        "Hardware": {
+          "pin": 12
+        },
+        "Tweak": {
+          "offset": 225
+        }
+      },
+      "r": {
+        "Hardware": {
+          "pin": 13
+        },
+        "Tweak": {
+          "offset": 35
+        }
+      }
+    }
+  },
+  "Brown": {
     "Preset": {
       "Hardware": {
         "mode": "Straight"
@@ -248,7 +300,7 @@
       }
     }
   },
-  "Striped": {
+  "Delta": {
     "Preset": {
       "Hardware": {
         "mode": "Straight"
@@ -284,6 +336,46 @@
       "r": {
         "Hardware": {
           "pin": 15
+        }
+      }
+    }
+  },
+  "Red": {
+    "Preset": {
+      "Hardware": {
+        "mode": "Straight"
+      },
+      "Specs": {
+        "freq": 50,
+        "u16_min": 1639,
+        "u16_max": 8192,
+        "range": 180
+      },
+      "Tweak": {
+        "angle": 90,
+        "offset": 0,
+        "invert": true
+      }
+    },
+    "Motors": {
+      "L": {
+        "Hardware": {
+          "pin": 15
+        }
+      },
+      "l": {
+        "Hardware": {
+          "pin": 16
+        }
+      },
+      "R": {
+        "Hardware": {
+          "pin": 2
+        }
+      },
+      "r": {
+        "Hardware": {
+          "pin": 4
         }
       }
     }

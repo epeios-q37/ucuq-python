@@ -3,7 +3,7 @@
 # COMPUTER GENERATED FILE #
 ###########################
 
-import os, json, socket, sys, threading, datetime, time
+import os, json, socket, sys, threading, datetime, time, threading
 from inspect import getframeinfo, stack
 
 CONFIG_FILE = ( "/home/csimon/q37/epeios/tools/ucuq/remote/wrappers/PYH/" if "Q37_EPEIOS" in os.environ else "../" ) + "ucuq.json"
@@ -39,10 +39,13 @@ R_EXECUTE_ = "Execute_1"
 R_UPLOAD_ = "Upload_1"
 
 # Answer
-A_OK_ = 0
-A_ERROR_ = 1
-A_PUZZLED_ = 2
-A_DISCONNECTED = 3
+# Answer; must match in device.h: device::eAnswer.
+A_RESULT_ = 0
+A_SENSOR_ = 1
+A_ERROR_ = 2
+A_PUZZLED_ = 3
+A_DISCONNECTED_ = 4
+
 
 def GetUUID_():
   global uuid_
@@ -149,7 +152,7 @@ def handshake_(socket):
   error = readString_(socket)
 
   if error:
-    sys.exit(error)
+    exit_(error)
 
   notification = readString_(socket)
 
@@ -195,9 +198,49 @@ def displayExitMessage_(Message):
   raise Error(Message)
 
 
+def readingThread(proxy):
+  while True:
+    if ( answer := readUInt_(proxy.socket) ) == A_RESULT_:
+      proxy.resultBegin.set()
+      proxy.resultEnd.wait()
+      proxy.resultEnd.clear()
+    elif answer == A_SENSOR_:
+      raise Error("Sensor handling not yet implemented!")
+    elif answer == A_ERROR_:
+      result = readString_(proxy.socket)
+      print(f"\n>>>>>>>>>> ERROR FROM DEVICE BEGIN <<<<<<<<<<")
+      print("Timestamp: ", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') )
+      caller = getframeinfo(stack()[1][0])
+      print(f"Caller: {caller.filename}:{caller.lineno}")
+      print(f">>>>>>>>>> ERROR FROM DEVICE CONTENT <<<<<<<<<<")
+      print(result)
+      print(f">>>>>>>>>> END ERROR FROM DEVICE END <<<<<<<<<<")
+      proxy.exit = True
+      proxy.resultBegin.set()
+      exit_()
+    elif answer == A_PUZZLED_:
+      readString_(proxy.socket) # For future use
+      raise Error("Puzzled!")
+    elif answer == A_DISCONNECTED_:
+        raise Error("Disconnected from device!")
+    else:
+      raise Error("Unknown answer from device!")
+
+
+class Proxy:
+  def __init__(self, socket):
+    self.socket = socket
+    if socket != None:
+      self.resultBegin = threading.Event()
+      self.resultEnd = threading.Event()
+      self.exit = False
+      threading.Thread(target = readingThread, args=(self,)).start()
+
+
 class Device_:
-  def __init__(self, *, id = None, token = None):
-    self.socket_ = None
+  def __init__(self, *, id = None, token = None, callback = None):
+    if callback != None:
+      exit_("'callback' in only used by the Brython version!")
 
     if id or token:
       self.connect(id, token)
@@ -206,107 +249,50 @@ class Device_:
     if token == None and id == None:
       token, id = handlingConfig_(token, id)
 
-    self.token = token if token else ALL_DEVICE_VTOKEN
+    self.token = token if token else ALL_DEVICES_VTOKEN
     self.id = id if id else ""
 
-    self.socket_ = connect_(self.token, self.id, errorAsException = errorAsException)
+    self.proxy = Proxy(connect_(self.token, self.id, errorAsException = errorAsException))
 
-    return self.socket_ != None
-
-  def upload(self, modules):
-    writeString_(self.socket_, R_UPLOAD_)
-    writeStrings_(self.socket_, modules)
-
-    if ( answer := readUInt_(self.socket_) ) == A_OK_:
-      readString_(self.socket_) # For future use
-    elif answer == A_ERROR_:
-      result = readString_(self.socket_)
-      print(f"\n>>>>>>>>>> ERROR FROM DEVICE BEGIN <<<<<<<<<<")
-      print("Timestamp: ", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') )
-      caller = getframeinfo(stack()[1][0])
-      print(f"Caller: {caller.filename}:{caller.lineno}")
-      print(f">>>>>>>>>> ERROR FROM DEVICE CONTENT <<<<<<<<<<")
-      print(result)
-      print(f">>>>>>>>>> END ERROR FROM DEVICE END <<<<<<<<<<")
-      sys.exit(0)
-    elif answer == A_PUZZLED_:
-      readString_(self.socket_) # For future use
-      raise Error("Puzzled!")
-    elif answer == A_DISCONNECTED:
-        raise Error("Disconnected from device!")
-    else:
-      raise Error("Unknown answer from device!")
-
+    return self.proxy.socket != None
+  
+  def upload_(self, modules):
+    writeString_(self.proxy.socket, R_UPLOAD_)
+    writeStrings_(self.proxy.socket, modules)
 
   def execute_(self, script, expression = ""):
-    if self.socket_:
-      writeString_(self.socket_, R_EXECUTE_)
-      writeString_(self.socket_, script)
-      writeString_(self.socket_, expression)
+    if self.proxy.socket:
+      writeString_(self.proxy.socket, R_EXECUTE_)
+      writeString_(self.proxy.socket, script)
+      writeString_(self.proxy.socket, expression)
 
-      if ( answer := readUInt_(self.socket_) ) == A_OK_:
-        if result := readString_(self.socket_):
-          return json.loads(result)
+      if expression:
+        self.proxy.resultBegin.wait()
+        self.proxy.resultBegin.clear()
+        if self.proxy.exit:
+          exit()
         else:
-          return None
-      elif answer == A_ERROR_:
-        result = readString_(self.socket_)
-        print(f"\n>>>>>>>>>> ERROR FROM DEVICE BEGIN <<<<<<<<<<")
-        print("Timestamp: ", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') )
-        caller = getframeinfo(stack()[1][0])
-        print(f"Caller: {caller.filename}:{caller.lineno}")
-        print(f">>>>>>>>>> ERROR FROM DEVICE CONTENT <<<<<<<<<<")
-        print(result)
-        print(f">>>>>>>>>> END ERROR FROM DEVICE END <<<<<<<<<<")
-        sys.exit(0)
-      elif answer == A_PUZZLED_:
-        readString_(self.socket_) # For future use
-        raise Error("Puzzled!")
-      elif answer == A_DISCONNECTED:
-          raise Error("Disconnected from device!")
-      else:
-        raise Error("Unknown answer from device!")
+          result = readString_(self.proxy.socket)
+          self.proxy.resultEnd.set()
 
-
-class Device(Device_):
-  def __init__(self, *, id = None, token = None):
-    self.pendingModules = ["Init-1"]
-    self.handledModules = []
-    self.commands = []
-
-    super().__init__(id = id, token = token)
-
-  def addModule(self, module):
-    if not module in self.pendingModules and not module in self.handledModules:
-      self.pendingModules.append(module)
-
-  def addModules(self, modules):
-    if isinstance( modules, str):
-      self.addModule(modules)
-    else:
-      for module in modules:
-        self.addModule(module)
-
-  def addCommand(self, command):
-    self.commands.append(command)
-
+          if result:
+            return json.loads(result)
+          else:
+            return None
+          
   def commit(self, expression = ""):
     result = ""
 
-    if self.pendingModules:
-      super().upload(self.pendingModules)
-      self.handledModules.extend(self.pendingModules)
-      self.pendingModules = []
+    if self.pendingModules_:
+      self.upload_(self.pendingModules_)
+      self.handledModules_.extend(self.pendingModules_)
+      self.pendingModules_ = []
 
-    if self.commands or expression:
-      result = super().execute_('\n'.join(self.commands), expression)
-      self.commands = []
+    if self.commands_ or expression:
+      result = self.execute_('\n'.join(self.commands_), expression)
+      self.commands_ = []
 
     return result
-  
-  def sleep(self, secs):
-    self.addCommand(f"time.sleep({secs})")
-    
 
 def getDemoDevice():
   device = Device()
@@ -437,11 +423,13 @@ K_BIPEDAL = 1
 K_DOG = 2
 K_DIY_DISPLAYS = 3
 K_DIY_SERVOS = 4
-K_WOKWI_DISPLAYS = 5
-K_WOKWI_SERVOS = 6
+K_DIY_FREE = 5
+K_WOKWI_DISPLAYS = 6
+K_WOKWI_SERVOS = 7
 
 KITS_ = {
   "Freenove/Bipedal/RPiPicoW": K_BIPEDAL,
+  "Freenove/Bipedal/RPiPico2W": K_BIPEDAL,
   "Freenove/Dog/ESP32": K_DOG,
   "q37.info/DIY/Displays": K_DIY_DISPLAYS,
   "q37.info/DIY/Servos": K_DIY_SERVOS,
@@ -452,6 +440,7 @@ KITS_ = {
 # Hardware kits
 
 H_BIPEDAL = {
+  "OnBoardLed": ["LED", True],
   "RGB": {
     "Pin": 16,
     "Count": 4,
@@ -461,6 +450,7 @@ H_BIPEDAL = {
 }
 
 H_DOG = {
+  "OnBoardLed":[2, False],
   "RGB": {
     "Pin": 0,
     "Count": 4,
@@ -470,6 +460,7 @@ H_DOG = {
 }
 
 H_DIY_DISPLAYS = {
+  "OnBoardLed": [8, False],
   "Ring": {
     "Pin": 2,
     "Count": 8,
@@ -491,14 +482,26 @@ H_DIY_DISPLAYS = {
   },
 }
 
+# NOTA : below 'Pins' (GPIO) correspond to respectively
+# physical pins 'D6' 'D7' 'D5' 'D8'.
 H_DIY_SERVOS = {
+  "OnBoardLed":  [2, False],
   "Servos": {
     "Mode": "Straight",
     "Pins": [12, 13, 14, 15]
   }
 }
 
+H_DIY_FREE = {
+  "OnBoardLed":  [8, False],
+  "Servos": {
+    "Mode": "Straight",
+    "Pins": [12, 13, 14, 27]
+  }
+}
+
 H_WOKWI_DISPLAYS = {
+  "OnBoardLed": [2, True],
   "Ring": {
     "Pin": 15,
     "Count": 16,
@@ -520,10 +523,59 @@ H_WOKWI_DISPLAYS = {
   },
 }
 
+CB_AUTO = 0
+CB_MANUAL = 1
+
+defaultCommitBehavior_ = CB_AUTO
+
+def testCommit_(behavior = None):
+  if behavior == None:
+    behavior = defaultCommitBehavior_
+
+  return behavior == CB_AUTO
+
+class Device(Device_):
+  def __init__(self, *, id = None, token = None, callback = None):
+    self.pendingModules_ = ["Init-1"]
+    self.handledModules_ = []
+    self.commands_ = []
+    self.commitBehavior = None
+
+    super().__init__(id=id, token = token, callback = callback)
+  
+  def __del__(self):
+    self.commit()
+
+  def testCommit_(self):
+    return testCommit_(self.commitBehavior)
+
+  def addModule(self, module):
+    if not module in self.pendingModules_ and not module in self.handledModules_:
+      self.pendingModules_.append(module)
+
+  def addModules(self, modules):
+    if isinstance( modules, str):
+      self.addModule(modules)
+    else:
+      for module in modules:
+        self.addModule(module)
+
+  def addCommand(self, command, commit = False):
+    self.commands_.append(command)
+
+    if commit or self.testCommit_():
+      self.commit()
+
+    return self
+
+  def sleep(self, secs):
+    self.addCommand(f"time.sleep({secs})")
+
+
 def getInfos(device = None):
   device = getDevice_(device)
 
-  device.addCommand(INFO_SCRIPT_)
+  device.addCommand(INFO_SCRIPT_, False)
 
   return device.commit("ucuqGetInfos()")
 
@@ -622,7 +674,7 @@ class Core_:
   def getDevice(self):
     return self.device_
   
-  def init(self, modules, instanciation, device):
+  def init(self, modules, instanciation, device,*,before=""):
     self.id = GetUUID_()
 
     if self.device_:
@@ -633,6 +685,9 @@ class Core_:
 
     if modules:
       self.device_.addModules(modules)
+
+    if before:
+      self.addCommand(before)
 
     if instanciation:
       self.addCommand(f"{self.getObject()} = {instanciation}")
@@ -778,11 +833,12 @@ class PWM(Core_):
     super().__init__(device)
 
     if pin != None:
-      self.init(pin, device = device)
+      self.init(pin, freq = freq, u16 = u16, ns = ns, device = device)
 
 
   def init(self, pin, *, freq = None, u16 = None, ns = None, device = None):
-    super().init("PWM-1", f"machine.PWM(machine.Pin({pin}){getParam('freq', freq)}{getParam('duty_u16', u16)}{getParam('duty_ns', ns)})", device)
+    command = f"machine.PWM(machine.Pin({pin}, machine.Pin.OUT){getParam('freq', freq)}{getParam('duty_u16', u16)}{getParam('duty_ns', ns)})"
+    super().init("PWM-1", command, device, before=f"{command}.deinit()")
 
 
   def getU16(self):
@@ -1152,3 +1208,8 @@ def rbShadeFade(variant, i, max):
   else:
     return rbShade(variant + int( (i - max) / max ), i % max, max)
     
+def setCommitBehavior(behavior):
+  global defaultCommitBehavior_
+
+  defaultCommitBehavior_ = behavior
+  

@@ -40,7 +40,7 @@ def setPin(dom, preset):
     dom.setValue(W_PIN, PINS[preset])
 
 
-def acConnect(dom):
+def atkConnect(dom):
   id = ucuq.getKitId(ucuq.ATKConnect(dom, BODY))
 
   if id == ucuq.K_BIPEDAL:
@@ -55,22 +55,20 @@ def acConnect(dom):
   setPin(dom, preset)  
 
 
-def acPlay(dom,id):
+def atkPlay(dom,id):
   global pwm
 
   if onDuty:
     freq = int(baseFreq*math.pow(math.pow(2,1.0/12), int(id)))
     pwm.setU16(int(ratio*65535))
     pwm.setFreq(freq)
-    ucuq.commit()
     ucuq.sleep(.5)
     pwm.setU16(0)
-    ucuq.commit()
   else:
     dom.alert("Please switch on!")
 
 
-def acSetRatio(dom, id):
+def atkSetRatio(dom, id):
   global ratio
 
   ratio = float(dom.getValue(id))
@@ -78,13 +76,13 @@ def acSetRatio(dom, id):
   dom.setValue(W_RATIO_SLIDE if id == W_RATIO_VALUE else W_RATIO_SLIDE, ratio)
 
 
-def acPreset(dom, id):
+def atkPreset(dom, id):
   global onDuty, pwm
 
   setPin(dom, dom.getValue(id))
 
 
-def acSwitch(dom, id):
+def atkSwitch(dom, id):
   global onDuty, pwm
 
   state = dom.getValue(id) == "true"
@@ -98,8 +96,7 @@ def acSwitch(dom, id):
       dom.alert("No or bad pin value!")
       dom.setValue(id, "false")
     else:
-      pwm = ucuq.PWM(pin)
-      ucuq.commit()
+      pwm = ucuq.PWM(pin, freq=50, u16=0)
       onDuty = True
   else:
     onDuty = False
@@ -109,20 +106,11 @@ def acSwitch(dom, id):
   else:
     dom.enableElement(W_PIN_BOX)
 
-
-CALLBACKS = {
-  "": acConnect,
-  "Preset": acPreset,
-  "Switch": acSwitch,
-  "Play": acPlay,
-  "SetRatio": acSetRatio
-}
-
 with open('Body.html', 'r') as file:
   BODY = file.read()
 
 with open('Head.html', 'r') as file:
   HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD)
+atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
 

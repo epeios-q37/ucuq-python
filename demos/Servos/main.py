@@ -1,11 +1,11 @@
-import os, sys, time, io, json, datetime
+import os, sys
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.extend(("../..","../../atlastk.zip"))
 
+import os, io, json, datetime
 import ucuq, atlastk
 
-TARGET = "" # if "", retrieved from config file.
 
 MACRO_MARKER_ = '$'
 
@@ -35,12 +35,6 @@ CONFIG_KEYS = {
   SPECS_KEY: ["freq", "u16_min", "u16_max", "range"],
   TWEAK_KEY: ["angle", "offset", "invert"]
 }
-
-with open('Body.html', 'r') as file:
-  BODY = file.read()
-
-with open('Head.html', 'r') as file:
-  HEAD = file.read()
 
 MACRO_HTML="""
 <div class="macro" xdh:mark="Macro{}" style="margin-bottom: 3px;">
@@ -90,37 +84,40 @@ def displayMacros(dom):
   dom.inner("Macros", html)
 
 
-def updateFileList(dom):
+MACROS = {
+  "Bipedal": ucuq.K_BIPEDAL,
+  "DIY": ucuq.K_DIY_SERVOS,
+  "Dog": ucuq.K_DOG
+}
+
+def updateFileList(dom, kit = ucuq.K_UNKNOWN):
   html = ""
-  for file in os.listdir("Macros"):
-    html = f"<option value=\"{file}\">{file[:-5]}</option>\n" + html
+  for macro in MACROS:
+    html = f"<option value=\"{macro}\" {'selected=\"selected\"' if MACROS[macro] == kit else ''}>{macro}</option>\n" + html
 
   dom.inner("Files", html)
 
 
-def acConnect(dom):
+def atkConnect(dom):
   infos = ucuq.ATKConnect(dom, BODY)
 
   createServos(ucuq.getDeviceId(infos))
 
   displayMacros(dom)
-  updateFileList(dom)
+  updateFileList(dom, ucuq.getKitId(infos))
 
 
-def acTest():
+def atkTest():
   reset_()
   step = int(STEP * DEFAULT_SPEED / 2)
-  ucuq.commit()
   for servo in servos:
     ucuq.servoMoves([[servos[servo], 15]], step)
     ucuq.servoMoves([[servos[servo], -15]], step)
     ucuq.servoMoves([[servos[servo], 0]], step)
   
-  ucuq.commit()
 
-def acReset(dom):
+def atkReset(dom):
   reset_()
-  ucuq.commit()
 
 
 def getToken(stream):
@@ -287,7 +284,7 @@ def execute(dom, string, speed = DEFAULT_SPEED):
     dom.alert(err)
 
 
-def acExecute(dom, id):
+def atkExecute(dom, id):
   mark = dom.getMark(id)
 
   if mark == "Buffer":
@@ -298,13 +295,12 @@ def acExecute(dom, id):
 
   if dom.getValue("Reset") == "true":
     reset_()
-    ucuq.commit()
 
   execute(dom, moves)
-  ucuq.commit()
 
 
-def acSave(dom):
+def atkSave(dom):
+
   name = dom.getValue("Name").strip()
 
   if not ( content := dom.getValue("Content") ):
@@ -323,7 +319,6 @@ def acSave(dom):
         file.write(json.dumps(macros, indent=2)) # type: ignore
 
     displayMacros(dom)
-
 
 def expand(moves):
   content = ""
@@ -347,23 +342,23 @@ def expand(moves):
   return content
 
 
-def acExpand(dom):
+def atkExpand(dom):
   try:
     dom.setValue("Content", expand(dom.getContent("Content")))
   except Exception as err:
     dom.alert(err)
 
 
-def acDelete(dom, id):
-  name = dom.getMark(id)[5:]
+def atkDelete(dom, id):
+  name = (dom.getMark(id))[5:]
 
   if dom.confirm(f"Delete macro '{name}'?"):
     del macros[name]
     displayMacros(dom)
 
 
-def acEdit(dom, id):
-  name = dom.getMark(id)[5:]
+def atkEdit(dom, id):
+  name = (dom.getMark(id))[5:]
 
   dom.setValues({
     "Name": name,
@@ -373,7 +368,7 @@ def acEdit(dom, id):
   })
 
 
-def acHideContents(dom):
+def atkHideContents(dom):
   global contentsHidden
 
   contentsHidden = not contentsHidden
@@ -384,38 +379,27 @@ def acHideContents(dom):
     dom.disableElement("HideContents")
 
   
-def acSaveToFile(dom):
+def atkSaveToFile(dom):
+
   with open(f"Macros/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json", "w") as file: 
     file.write(json.dumps(macros, indent=2)) # type: ignore
   
   updateFileList(dom)
 
-
-def acLoadFromFile(dom):
+def atkLoadFromFile(dom):
   global macros
 
-  with open(f"Macros/{dom.getValue('Files')}", "r") as file:
+  with open(f"Macros/{dom.getValue('Files')}.json", "r") as file:
     macros = json.load(file)
+
+
+  print("Macros: ", macros)
 
   if "_" in macros:
     dom.setValue("Content", macros["_"]["Content"])
 
   displayMacros(dom)
 
-
-CALLBACKS = {
-   "": acConnect,
-   "Test": acTest,
-   "Reset": acReset,
-   "Save": acSave,
-   "Execute": acExecute,
-   "Expand": acExpand,
-   "Delete": acDelete,
-   "Edit": acEdit,
-   "HideContents": acHideContents,
-   "SaveToFile": acSaveToFile,
-   "LoadFromFile": acLoadFromFile,
-}
 
 command = ""
 
@@ -446,8 +430,11 @@ def getServoSetup(key, subkey, preset, motor):
 def getServosSetups(target):
   setups = {}
 
+
   with open("servos.json", "r") as file:
     config = json.load(file)[target]
+
+
 
   preset = config["Preset"]
   motors = config["Motors"]
@@ -497,6 +484,11 @@ def createServos(deviceId):
       raise Exception("Unknown hardware mode!")
     servos[setup] = ucuq.Servo(pwm, ucuq.Servo.Specs(specs["u16_min"], specs["u16_max"], specs["range"]), tweak = ucuq.Servo.Tweak(tweak["angle"],tweak["offset"], tweak["invert"]))
 
-  ucuq.commit()
+with open('Body.html', 'r') as file:
+  BODY = file.read()
 
-atlastk.launch(CALLBACKS, headContent = HEAD)
+with open('Head.html', 'r') as file:
+  HEAD = file.read()
+
+atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
+

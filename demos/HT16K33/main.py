@@ -44,7 +44,6 @@ def test():
       ucuq.sleep(TEST_DELAY)
 
     ht16k33.clear().show()
-    ucuq.commit()
 
 
 def drawOnGUI(dom, motif = pattern):
@@ -88,12 +87,8 @@ def drawOnMatrix(motif = pattern):
   if ht16k33:
     ht16k33.draw(motif).show()
 
-    ucuq.commit()
-
     if mirror:
       mirror.fill(0).draw(motif, 16, mul=8).show()
-
-      mirror.getDevice().commit()
 
 def draw(dom, motif = pattern):
   global pattern
@@ -132,7 +127,7 @@ def updateUI(dom, onDuty):
         raise Exception("Unknown preset!")
         
 
-def acConnect(dom):
+def atkConnect(dom):
   id = ucuq.getKitId(ucuq.ATKConnect(dom, BODY))
 
   draw(dom, "")
@@ -147,7 +142,7 @@ def acConnect(dom):
 
   updateUI(dom, onDuty)
 
-def acPreset(dom, id):
+def atkPreset(dom, id):
   match dom.getValue("Preset"):
     case "User":
       dom.setValues({
@@ -170,7 +165,6 @@ def launch(dom, sda, scl):
     ht16k33.clear().show()
     ht16k33.setBrightness(0)
     ht16k33.setBlinkRate(0)
-    ucuq.commit()
   except Exception as err:
     dom.alert(err)
     onDuty = False
@@ -178,7 +172,7 @@ def launch(dom, sda, scl):
     onDuty = True
 
 
-def acSwitch(dom, id):
+def atkSwitch(dom, id):
   global onDuty
 
   state = (dom.getValue(id)) == "true"
@@ -199,11 +193,11 @@ def acSwitch(dom, id):
   updateUI(dom, onDuty)
 
 
-def acTest():
+def atkTest():
   test()
 
 
-def acToggle(dom, id):
+def atkToggle(dom, id):
   if not onDuty:
     dom.alert("Please switch on!")
     return
@@ -225,7 +219,7 @@ def acToggle(dom, id):
   draw(dom, pattern)
 
 
-def acHexa(dom):
+def atkHexa(dom):
   global pattern
 
   drawOnMatrix(motif := dom.getValue("Hexa"))
@@ -235,51 +229,34 @@ def acHexa(dom):
   pattern = motif
 
 
-def acAll(dom):
+def atkAll(dom):
   for matrix in MATRICES:
     draw(dom, matrix)
     ucuq.time.sleep(0.5)
 
 
-def acBrightness(dom, id):
+def atkBrightness(dom, id):
   ht16k33.setBrightness(int(dom.getValue(id)))
-  ucuq.commit()
 
-def acBlinkRate(dom, id):
+def atkBlinkRate(dom, id):
   ht16k33.setBlinkRate(float(dom.getValue(id)))
-  ucuq.commit()
 
-def acDraw(dom, id):
+def atkDraw(dom, id):
   draw(dom, MATRICES[int(dom.getMark(id))])
 
-def acMirror(dom, id):
+def atkMirror(dom, id):
   global mirror
 
   state = (dom.getValue(id)) == "true"
 
   if state:
     if ( dom.confirm("Please do not confirm unless you know exactly what you are doing!") ):
-      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(8, 9, device = ucuq.Device(id="Yellow")))
+      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(8, 9, device = ucuq.Device(id="Bravo")))
     else:
       dom.setValue(id, "false")
   else:
     mirror = None
   
-
-CALLBACKS = {
-  "": acConnect,
-  "Preset": acPreset,
-  "Switch": acSwitch,
-  "Test": acTest,
-  "All": acAll,
-  "Toggle": acToggle,
-  "Brightness": acBrightness,
-  "Blink": acBlinkRate,
-  "Hexa": acHexa,
-  "Draw": acDraw,
-  "Mirror": acMirror
-}
-
 MATRICES = (
   "0FF0300C4002866186614002300C0FF",
   "000006000300FFFFFFFF030006",
@@ -310,5 +287,5 @@ with open('Body.html', 'r') as file:
 with open('Head.html', 'r') as file:
   HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD)
+atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
 

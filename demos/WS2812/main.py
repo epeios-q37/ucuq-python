@@ -48,7 +48,6 @@ def rainbow():
     ucuq.sleep(RB_DELAY)
     i += ws2812Limiter / 20
   ws2812.fill([0]*3).write()
-  ucuq.commit() 
 
 
 def convert_(hex):
@@ -80,7 +79,6 @@ def update_(r, g, b):
     ws2812.fill([int(r), int(g), int(b)]).write()
     if oledDIY:
       oledDIY.fill(0).text(f"R: {r}", 0, 5).text(f"G: {g}", 0, 20).text(f"B: {b}", 0, 35).show()
-    ucuq.commit()
 
 
 def launch(dom, pin, count):
@@ -88,7 +86,6 @@ def launch(dom, pin, count):
 
   try:
     ws2812 = ucuq.WS2812(pin, count)
-    ucuq.commit()
   except Exception as err:
     dom.alert(err)
     onDuty = False
@@ -148,7 +145,7 @@ def updateUI(dom, onDuty):
       raise Exception("Unknown preset!")
 
 
-def acConnect(dom):
+def atkConnect(dom):
   global oledDIY
   id = ucuq.getKitId(ucuq.ATKConnect(dom, BODY))
 
@@ -170,11 +167,11 @@ def acConnect(dom):
   updateUI(dom, False)
 
 
-def acPreset(dom):
+def atkPreset(dom):
   updateUI(dom, onDuty)
 
 
-def acSwitch(dom, id):
+def atkSwitch(dom, id):
   global onDuty, ws2812Limiter
 
   state = (dom.getValue(id)) == "true"
@@ -195,7 +192,7 @@ def acSwitch(dom, id):
   updateUI(dom, onDuty)
 
 
-def acSelect(dom):
+def atkSelect(dom):
   if onDuty:
     R, G, B = (dom.getValues(["rgb-r", "rgb-g", "rgb-b"])).values()
     dom.setValues(getAllValues_(R, G, B))
@@ -204,25 +201,25 @@ def acSelect(dom):
     dom.executeVoid(f"colorWheel.rgb = [0,0,0]")  
 
 
-def acSlide(dom):
+def atkSlide(dom):
   (R,G,B) = (dom.getValues(["SR", "SG", "SB"])).values()
   dom.setValues(getNValues_(R, G, B))
   dom.executeVoid(f"colorWheel.rgb = [{R},{G},{B}]")
   update_(R, G, B)
 
 
-def acAdjust(dom):
+def atkAdjust(dom):
   (R,G,B) = (dom.getValues(["NR", "NG", "NB"])).values()
   dom.setValues(getSValues_(R, G, B))
   dom.executeVoid(f"colorWheel.rgb = [{R},{G},{B}]")
   update_(R, G, B)
 
 
-def acListen(dom):
+def atkListen(dom):
   dom.executeVoid("launch()")
 
   
-def acDisplay(dom):
+def atkDisplay(dom):
   colors = json.loads(dom.getValue("Color"))
 
   for color in colors:
@@ -234,31 +231,16 @@ def acDisplay(dom):
       update_(r, g, b)
       if oledDIY:
         oledDIY.text(color, 0, 50).show()
-        ucuq.commit()
-      break;
+      break
 
 
-def acRainbow(dom):
+def atkRainbow(dom):
   reset(dom)
   rainbow()
 
 
-def acReset(dom):
+def atkReset(dom):
   reset(dom)
-
-
-CALLBACKS = {
-  "": acConnect,
-  "Preset": acPreset,
-  "Switch": acSwitch,
-  "Select": acSelect,
-  "Slide": acSlide,
-  "Adjust": acAdjust,
-  "Listen": acListen,
-  "Display": acDisplay,
-  "Rainbow": acRainbow,
-  "Reset": acReset
-}
 
 
 with open('Body.html', 'r') as file:
@@ -267,5 +249,5 @@ with open('Body.html', 'r') as file:
 with open('Head.html', 'r') as file:
   HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD)
+atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
 

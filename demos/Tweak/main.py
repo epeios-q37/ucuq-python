@@ -262,7 +262,7 @@ def setWidth(width):
   return getParams()
 
 
-def acConnect(dom):
+def atkConnect(dom):
   preset = PRESETS[ucuq.getKitId(ucuq.ATKConnect(dom, BODY))]
 
   updateSettingsUIFollowingPreset_(dom, preset)
@@ -270,10 +270,10 @@ def acConnect(dom):
   dom.setValue(W_PRESET, preset)
   
   ucuq.addCommand(MC_INIT)
-  ucuq.commit()
   
   updateDutyBox(dom)
   dom.enableElement(W_HARDWARE_BOX)
+
 
 def updateSettingsUIFollowingMode_(dom, mode):
   if mode == M_NONE:
@@ -297,16 +297,17 @@ def updateSettingsUIFollowingPreset_(dom, preset):
   dom.setValues(setting)
 
 
-def acPreset(dom, id):
+def atkPreset(dom, id):
   preset = dom.getValue(id)
 
   updateSettingsUIFollowingPreset_(dom, preset)
 
 
-def acMode(dom, id):
+def atkMode(dom, id):
   updateSettingsUIFollowingMode_(dom, dom.getValue(id))
+  
 
-def acSwitch(dom, id):
+def atkSwitch(dom, id):
   global state
 
   if dom.getValue(id) == "true":
@@ -326,11 +327,11 @@ def acSwitch(dom, id):
     dom.enableElements([W_SETTINGS_BOX, W_PRESET])
 
 
-def acSelect(dom):
+def atkSelect(dom):
   updateDutyBox(dom)
 
 
-def acFreq(dom, id):
+def atkFreq(dom, id):
   if state:
     freq = dom.getValue(id)
 
@@ -341,7 +342,8 @@ def acFreq(dom, id):
     else:
       updateDuties(dom, setFreq(freq))
 
-def acOffset(dom, id):
+
+def atkOffset(dom, id):
   if state:
     offset = dom.getValue(id)
 
@@ -353,7 +355,7 @@ def acOffset(dom, id):
       updateDuties(dom, setOffset(offset))
 
 
-def acRatio(dom, id):
+def atkRatio(dom, id):
   if state:
     value = dom.getValue(id)
 
@@ -365,11 +367,11 @@ def acRatio(dom, id):
       updateDuties(dom, setRatio(ratio))
 
 
-def acRatioStep(dom, id):
+def atkRatioStep(dom, id):
   dom.setAttribute(W_RATIO, "step", dom.getValue(id)),
 
 
-def acWidth(dom, id):
+def atkWidth(dom, id):
   if state:
     value = dom.getValue(id)
 
@@ -381,23 +383,8 @@ def acWidth(dom, id):
       updateDuties(dom, setWidth(int(1000000 * width)))
 
 
-def acWidthStep(dom, id):
+def atkWidthStep(dom, id):
   dom.setAttribute(W_WIDTH, "step", dom.getValue(id)),
-
-
-CALLBACKS = {
-  "": acConnect,
-  "Preset": acPreset,
-  "Mode": acMode,
-  "Switch": acSwitch,
-  "Freq": acFreq,
-  "Offset": acOffset,
-  "Select": acSelect,
-  "Ratio": acRatio,
-  "RatioStep": acRatioStep,
-  "Width": acWidth,
-  "WidthStep": acWidthStep
-}
 
 MC_INIT = """
 def getParams(pwm, prescale):
@@ -410,5 +397,5 @@ with open('Body.html', 'r') as file:
 with open('Head.html', 'r') as file:
   HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD)
+atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
 
