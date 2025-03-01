@@ -759,6 +759,7 @@ class WS2812(Core_):
 
   def write(self):
     self.addMethods(f"write()")
+    return self
 
 class I2C_Core_(Core_):
   def __init__(self, sda = None, scl = None, *, device = None, soft = None):

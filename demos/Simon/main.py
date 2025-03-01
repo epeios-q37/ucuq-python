@@ -46,6 +46,9 @@ FR = {
 
 STRINGS = EN
 
+HAPPY_MOTIF = "03c00c30181820044c32524a80018001824181814812442223c410080c3003c0"
+SAD_MOTIF = "03c00c30181820044c3280018001824181814002400227e410080c3003c0"
+
 OLED_COEFF = 8
 ringCount = 0
 ringOffset = 0
@@ -92,8 +95,6 @@ def remove(source, items):
 HARDWARE_WIDGETS = getValuesOfVarsBeginningWith("W_H_")
 HARDWARE_WIDGETS_WITHOUT_SWITCH = remove(HARDWARE_WIDGETS, [W_H_SWITCH])
 BOARD_WIDGETS = getValuesOfVarsBeginningWith("W_B_")
-
-print(HARDWARE_WIDGETS_WITHOUT_SWITCH, BOARD_WIDGETS)
 
 # Default hardware settings
 SETTINGS = {
@@ -282,15 +283,12 @@ def atkSwitch(dom, id):
     ringOffset = inputs[W_H_RING_OFFSET]
     ringLimiter = inputs[W_H_RING_LIMITER]
 
-    print(ringOffset)
-
     ucuq.setCommitBehavior(ucuq.CB_MANUAL)
 
-    cRing = ucuq.WS2812(inputs[W_H_RING_PIN], inputs[W_H_RING_COUNT])
+    cRing = ucuq.WS2812(inputs[W_H_RING_PIN], inputs[W_H_RING_COUNT]).fill([0,0,0]).write()
     cOLED = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(inputs[W_H_OLED_SDA], inputs[W_H_OLED_SCL], soft = inputs[W_H_OLED_SOFT]))
     cLCD = ucuq.HD44780_I2C(ucuq.I2C(inputs[W_H_LCD_SDA], inputs[W_H_LCD_SCL], soft = inputs[W_H_LCD_SOFT]), 2, 16).backlightOff()
     if inputs[W_H_BUZZER_ON]:
-#      ucuq.PWM(inputs[W_H_BUZZER_PIN], freq=50, u16 = 0).deinit()
       cBuzzer = ucuq.PWM(inputs[W_H_BUZZER_PIN], freq=50, u16 = 0)
     else:
       cBuzzer = ucuq.Nothing()
@@ -328,6 +326,7 @@ def display(button):
 def play(sequence):
   seq=""
   for s in sequence:
+    number(len(seq)+1)
     display(s)
     seq += s
 
@@ -382,7 +381,7 @@ def atkClick(dom, id):
     if len(seq) <= len(userSeq):
       cLCD.moveTo(0,0).putString(STRINGS[4])
       number(None)
-      cOLED.draw("03c00c30181820044c32524a80018001824181814812442223c410080c3003c0", 16, mul=4, ox=32).show()
+      cOLED.draw(HAPPY_MOTIF, 16, mul=4, ox=32).show()
       playJingle(SUCCESS_JINGLE)
       ucuq.sleep(0.5)
       cLCD.clear()
@@ -391,7 +390,7 @@ def atkClick(dom, id):
       seq += random.choice("RGBY")
       cLCD.clear().moveTo(0,0).putString(STRINGS[2]).moveTo(0,1).putString(STRINGS[3])
       number(None)
-      number(len(seq))
+      number(0)
       ucuq.sleep(.75)
       play(seq)
     else:
@@ -401,7 +400,7 @@ def atkClick(dom, id):
     number(len(seq))
     cBuzzer.setFreq(30).setU16(50000)
     number(None)
-    cOLED.fill(0).draw("03c00c30181820044c3280018001824181814002400227e410080c3003c0", 16, mul=4, ox=32).show()
+    cOLED.fill(0).draw(SAD_MOTIF, 16, mul=4, ox=32).show()
     ucuq.sleep(1)
     cBuzzer.setU16(0)
     ucuq.commit()
