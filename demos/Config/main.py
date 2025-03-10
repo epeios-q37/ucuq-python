@@ -1,32 +1,17 @@
-import os, sys, json
+import os, sys
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append("../../atlastk.zip")
+sys.path.extend(("../..","../../atlastk.zip"))
+
+import os, sys, json
 
 import atlastk
 
-DEFAULT_HOST = "ucuq.q37.info"
-DEFAULT_PORT = "53800"
 
 def isDev():
   return "Q37_EPEIOS" in os.environ
 
 CONFIG_FILE = ( "/home/csimon/q37/epeios/tools/ucuq/remote/wrappers/PYH/" if isDev() else "../" ) + "ucuq.json"
-
-# Keys
-K_DEVICE = "Device"
-K_DEVICE_TOKEN = "Token"
-K_DEVICE_ID = "Id"
-K_PROXY = "Proxy"
-K_PROXY_HOST = "Host"
-K_PROXY_PORT = "Port"
-
-# Widgets
-W_TOKEN = "Token"
-W_ID = "Id"
-W_HOST = "Host"
-W_PORT = "Port"
-W_OUTPUT = "Output"
 
 
 def getConfig():
@@ -38,10 +23,37 @@ def getConfig():
       K_DEVICE: {},
       K_PROXY: {}
     }
+  
+
+def save(config):
+  with open(CONFIG_FILE, "w") as file:
+    json.dump(config, file, indent=2)
 
 
-def getConfigDevice():
-  return getConfig()[K_DEVICE]
+def delete():
+    os.remove(CONFIG_FILE)
+
+DEFAULT_HOST = "ucuq.q37.info"
+DEFAULT_PORT = "53800"
+
+# Keys
+K_DEVICE = "Device"
+K_DEVICE_TOKEN = "Token"
+K_DEVICE_ID = "Id"
+K_PROXY = "Proxy"
+K_PROXY_HOST = "Host"
+K_PROXY_PORT = "Port"
+
+# Widgets
+W_PROXY = "Proxy"
+W_HOST = "Host"
+W_PORT = "Port"
+W_TOKEN = "Token"
+W_ID = "Id"
+W_OUTPUT = "Output"
+
+# Style
+S_HIDE_PROXY = "HideProxy"
 
 
 def getConfigProxy():
@@ -51,6 +63,10 @@ def getConfigProxy():
     return config[K_PROXY]
   else:
     return {}
+
+
+def getConfigDevice():
+  return getConfig()[K_DEVICE]
 
 
 def setAsHidden(dom, id):
@@ -86,14 +102,16 @@ def updateUI(dom):
   dom.focus(W_TOKEN if not K_DEVICE_TOKEN in device else W_ID)
 
 
-def acConnect(dom):
+def atk(dom):
   dom.inner("", BODY)
+
+  dom.disableElement(S_HIDE_PROXY)
 
   updateUI(dom)
 
 
-def acSave(dom):
-  host, port, token, id = (value.strip() for value in dom.getValues([W_HOST, W_PORT, W_TOKEN, W_ID]).values())
+def atkSave(dom):
+  host, port, token, id = (value.strip() for value in (dom.getValues([W_HOST, W_PORT, W_TOKEN, W_ID])).values())
 
   device = getConfigDevice()
 
@@ -134,60 +152,27 @@ def acSave(dom):
   else:
     del config[K_PROXY]
 
-  with open(CONFIG_FILE, "w") as file:
-    json.dump(config, file, indent=2)
+  save(config)
 
   dom.setValue(W_OUTPUT, "Config file updated!")
 
 
-def acDelete(dom):
+def atkDelete(dom):
   if isDev():
     dom.alert("You are in development environment, deleting config file is not possible!")
-  elif dom.confirm("Are you sur you want to delete config file ?"):
-    os.remove(CONFIG_FILE)
+  elif dom.confirm("Are you sure you want to delete config file ?"):
+    delete()
+    dom.removeAttribute(W_TOKEN, "placeholder")
+    dom.setValues({W_TOKEN: "", "Id": ""})
+    dom.focus(W_TOKEN)
+    dom.setValue(W_OUTPUT, "Config deleted!")
 
 
-CALLBACKS = {
-  "": acConnect,
-  "Save": acSave,
-  "Delete": acDelete
-}
+with open('Body.html', 'r') as file:
+  BODY = file.read()
 
-BODY = """
-<fieldset>
-  <details>
-    <summary style="cursor: pointer">Show/hide proxy settings</summary>
-    <fieldset>
-      <legend>Proxy</legend>
-      <label style="display: flex; justify-content: space-between; margin: 5px;">
-        <span>Host:&nbsp;</span>
-        <input id="Host">
-      </label>
-      <label style="display: flex; justify-content: space-between; margin: 5px;">
-        <span>Port:&nbsp;</span>
-        <input id="Port">
-      </label>
-    </fieldset>
-  </details>
-  <fieldset>
-    <legend>Device</legend>
-    <label style="display: flex; justify-content: space-between; margin: 5px;">
-      <span>Token:&nbsp;</span>
-      <input id="Token">
-    </label>
-    <label style="display: flex; justify-content: space-between; margin: 5px;">
-      <span>Id:&nbsp;</span>
-      <input id="Id">
-    </label>
-  </fieldset>
-  <div style="display: flex; justify-content: space-around; margin: 5px;">
-    <button xdh:onevent="Save">Save</button>
-    <button xdh:onevent="Delete">Delete</button>
-  </div>
-  <fieldset>
-    <output id="Output">Enter token and/or id.</output>
-  </fieldset>
-</fieldset>
-"""
+with open('Head.html', 'r') as file:
+  ATK_HEAD = file.read()
 
-atlastk.launch(CALLBACKS)
+atlastk.launch(globals=globals())
+

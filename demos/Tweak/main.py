@@ -262,7 +262,7 @@ def setWidth(width):
   return getParams()
 
 
-def atkConnect(dom):
+def atk(dom):
   preset = PRESETS[ucuq.getKitId(ucuq.ATKConnect(dom, BODY))]
 
   updateSettingsUIFollowingPreset_(dom, preset)
@@ -395,7 +395,7 @@ with open('Body.html', 'r') as file:
   BODY = file.read()
 
 with open('Head.html', 'r') as file:
-  HEAD = file.read()
+  ATK_HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
+atlastk.launch(globals=globals())
 

@@ -98,7 +98,7 @@ def updateFileList(dom, kit = ucuq.K_UNKNOWN):
   dom.inner("Files", html)
 
 
-def atkConnect(dom):
+def atk(dom):
   infos = ucuq.ATKConnect(dom, BODY)
 
   createServos(ucuq.getDeviceId(infos))
@@ -488,7 +488,7 @@ with open('Body.html', 'r') as file:
   BODY = file.read()
 
 with open('Head.html', 'r') as file:
-  HEAD = file.read()
+  ATK_HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
+atlastk.launch(globals=globals())
 

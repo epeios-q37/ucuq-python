@@ -633,7 +633,7 @@ def ATKConnect(dom, body, *, device = None):
 
 
 def getDevice_(device = None, *, id = None, token = None):
-  if device and ( token or id):
+  if device and ( token or id ):
     displayExitMessage_("'device' can not be given together with 'token' or 'id'!")
 
   if device == None:
@@ -644,7 +644,6 @@ def getDevice_(device = None, *, id = None, token = None):
     elif device_ == None:
       device_ = Device()
       device_.connect()
-    
     return device_
   else:
     return device
@@ -760,6 +759,7 @@ class WS2812(Core_):
   def write(self):
     self.addMethods(f"write()")
     return self
+  
 
 class I2C_Core_(Core_):
   def __init__(self, sda = None, scl = None, *, device = None, soft = None):
@@ -781,20 +781,21 @@ class I2C(I2C_Core_):
 
     super().init("I2C-1", f"machine.{'Soft' if soft else ''}I2C({'0,' if not soft else ''} sda=machine.Pin({sda}), scl=machine.Pin({scl}))", device = device)
 
+
 class SoftI2C(I2C):
   def init(self, sda, scl, *, device = None, soft = True):
     if soft == None:
       soft = True
 
     super().init(sda, scl, device = device, soft = soft)
-  
+
+
 class HT16K33(Core_):
   def __init__(self, i2c = None, /, addr = None):
     super().__init__()
 
     if i2c:
       self.init(i2c)
-
 
   def init(self, i2c, addr = None):
     super().init("HT16K33-1", f"HT16K33({i2c.getObject()}, {addr})", i2c.getDevice())

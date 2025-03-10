@@ -127,7 +127,7 @@ def updateUI(dom, onDuty):
         raise Exception("Unknown preset!")
         
 
-def atkConnect(dom):
+def atk(dom):
   id = ucuq.getKitId(ucuq.ATKConnect(dom, BODY))
 
   draw(dom, "")
@@ -285,7 +285,7 @@ with open('Body.html', 'r') as file:
   BODY = file.read()
 
 with open('Head.html', 'r') as file:
-  HEAD = file.read()
+  ATK_HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
+atlastk.launch(globals=globals())
 

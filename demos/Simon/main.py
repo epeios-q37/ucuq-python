@@ -11,19 +11,6 @@ cOLED = None
 cBuzzer = None
 cLCD = None
 
-DIGITS = [
-  0x3a33ae62e,
-  0x11842108e, 
-  0x3a213221f,
-  0x7c223062e,
-  0x8ca97c42,
-  0x7e1e0862e,
-  0x3a30f462e,
-  0x7c2222108,
-  0x3a317462e,
-  0x3a317862e,
-]
-
 EN = {
   0: "Welcome to",
   1: "Simon's game!",
@@ -45,6 +32,19 @@ FR = {
 }
 
 STRINGS = EN
+
+DIGITS = (
+  "708898A8C88870",
+  "20602020202070",
+  "708808304080f8",
+  "f8081030088870",
+  "10305090f81010",
+  "f880f008088870",
+  "708880f0888870",
+  "f8081020404040",
+  "70888870888870",
+  "70888878088870",
+)
 
 HAPPY_MOTIF = "03c00c30181820044c32524a80018001824181814812442223c410080c3003c0"
 SAD_MOTIF = "03c00c30181820044c3280018001824181814002400227e410080c3003c0"
@@ -139,21 +139,16 @@ PRESETS = {
 seq = ""
 userSeq = ""
 
-def digit(n,off):
-  pattern = DIGITS[n]
-
-  for x in range(5):
-    for y in range(7):
-      cOLED.rect(off+x*OLED_COEFF,y*OLED_COEFF,OLED_COEFF,OLED_COEFF,1 if pattern & (1 << ((4 - x ) + (6 - y) * 5)) else 0)
-  
-  cOLED.show()
+def digit(n,offset):
+  cOLED.draw(DIGITS[n], 8, offset, mul=8)
 
 def number(n):
   try:
     digit(n // 10, 12)
     digit(n % 10, 76)
   except:
-    cOLED.fill(0).show()
+    cOLED.fill(0)
+  cOLED.show()
 
 BUTTONS = {
   "R": [[255, 0, 0], 5, 9],
@@ -256,7 +251,7 @@ def updateHardwareUI(dom):
   dom.setValues(SETTINGS[dom.getValue(W_H_PRESET)])
 
 
-def atkConnect(dom):
+def atk(dom):
   preset = PRESETS[ucuq.getKitId(ucuq.ATKConnect(dom, BODY))]
 
   dom.setValue(W_H_PRESET, preset)
@@ -329,6 +324,8 @@ def play(sequence):
     number(len(seq)+1)
     display(s)
     seq += s
+    if len(seq) % 5:
+      ucuq.commit()
 
   
 def atkDisplay(dom):
@@ -360,7 +357,7 @@ def atkNew():
 
   seq = random.choice("RGBY")
   cLCD.clear().moveTo(0,0).putString(STRINGS[2]).moveTo(0,1).putString(STRINGS[3])
-  number(len(seq))
+  number(0)
   ucuq.sleep(.75)
   play(seq)
   ucuq.commit()
@@ -390,6 +387,7 @@ def atkClick(dom, id):
       seq += random.choice("RGBY")
       cLCD.clear().moveTo(0,0).putString(STRINGS[2]).moveTo(0,1).putString(STRINGS[3])
       number(None)
+      ucuq.commit()
       number(0)
       ucuq.sleep(.75)
       play(seq)
@@ -413,7 +411,7 @@ with open('Body.html', 'r') as file:
   BODY = file.read()
 
 with open('Head.html', 'r') as file:
-  HEAD = file.read()
+  ATK_HEAD = file.read()
 
-atlastk.launch(CALLBACKS if "CALLBACKS" in globals() else None, globals=globals(), headContent=HEAD, userCallback = USER if "USER" in globals() else None)
+atlastk.launch(globals=globals())
 
