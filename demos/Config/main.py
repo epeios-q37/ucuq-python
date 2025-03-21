@@ -11,7 +11,7 @@ import atlastk
 def isDev():
   return "Q37_EPEIOS" in os.environ
 
-CONFIG_FILE = ( "/home/csimon/q37/epeios/tools/ucuq/remote/wrappers/PYH/" if isDev() else "../" ) + "ucuq.json"
+CONFIG_FILE = ( "/home/csimon/q37/epeios/other/BPY/Apps/UCUq/" if isDev() else "../" ) + "ucuq.json"
 
 
 def getConfig():

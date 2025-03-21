@@ -5,67 +5,51 @@ sys.path.extend(("../..","../../atlastk.zip"))
 
 import ucuq, atlastk, math
 
-BUZZER_PIN = 2
-LOUDSPEAKER_PIN = 6
-
-# Presets
-P_USER = "User"
-P_BUZZER = "Buzzer"
-P_LOUDSPEAKER = "Loudspeaker"
-P_DIY = "DIY"
-
-
-PINS = {
-  P_BUZZER: 2,
-  P_LOUDSPEAKER: 6,
-  P_DIY: 5
-}
-
 # Widgets
-W_PIN_BOX = "PinBox"
-W_PIN = "Pin"
-W_PRESET = "Preset"
+W_TARGET = "Target"
 W_RATIO_SLIDE = "RatioSlide"
 W_RATIO_VALUE = "RatioValue"
-
-onDuty = False
 
 pwm = None
 baseFreq = 440.0*math.pow(math.pow(2,1.0/12), -16)
 ratio = 0.5
+target = None
 
+hardware = None
 
-def setPin(dom, preset):
-  if preset != P_USER:
-    dom.setValue(W_PIN, PINS[preset])
+def turnMainOn(hardware):
+  global pwm
+
+  if hardware == None:
+    raise Exception("Kit with no sound component!")
+  
+  pwm = ucuq.PWM(hardware["Pin"], freq=50, u16=0).setNS(0)
 
 
 def atk(dom):
-  id = ucuq.getKitId(ucuq.ATKConnect(dom, BODY))
+  global pwm, target, hardware
 
-  if id == ucuq.K_BIPEDAL:
-    preset = P_BUZZER
-  elif id == ucuq.K_DIY_DISPLAYS:
-    preset = P_DIY
-  else:
-    preset = P_USER
+  infos = ucuq.ATKConnect(dom, BODY)
 
-  dom.setValue(W_PRESET, preset)
+  if not pwm:
+    hardware = ucuq.getKitHardware(infos)
 
-  setPin(dom, preset)  
+    turnMainOn(ucuq.getHardware(hardware, "Buzzer"))
+
+    if "Loudspeaker" in hardware:
+      dom.disableElement("HideTarget")
+      target = "Buzzer"
+  elif target: 
+    dom.setValue(W_TARGET, target)
+    dom.disableElement("HideTarget")
 
 
 def atkPlay(dom,id):
-  global pwm
-
-  if onDuty:
-    freq = int(baseFreq*math.pow(math.pow(2,1.0/12), int(id)))
-    pwm.setU16(int(ratio*65535))
-    pwm.setFreq(freq)
-    ucuq.sleep(.5)
-    pwm.setU16(0)
-  else:
-    dom.alert("Please switch on!")
+  freq = int(baseFreq*math.pow(math.pow(2,1.0/12), int(id)))
+  pwm.setU16(int(ratio*65535))
+  pwm.setFreq(freq)
+  ucuq.sleep(.5)
+  pwm.setU16(0)
 
 
 def atkSetRatio(dom, id):
@@ -76,35 +60,12 @@ def atkSetRatio(dom, id):
   dom.setValue(W_RATIO_SLIDE if id == W_RATIO_VALUE else W_RATIO_SLIDE, ratio)
 
 
-def atkPreset(dom, id):
-  global onDuty, pwm
+def atkSwitchTarget(dom, id):
+  global target
 
-  setPin(dom, dom.getValue(id))
+  target = dom.getValue(id)
 
-
-def atkSwitch(dom, id):
-  global onDuty, pwm
-
-  state = dom.getValue(id) == "true"
-
-  if state:
-    rawPin = dom.getValue(W_PIN)
-
-    try:
-      pin = int(rawPin)
-    except:
-      dom.alert("No or bad pin value!")
-      dom.setValue(id, "false")
-    else:
-      pwm = ucuq.PWM(pin, freq=50, u16=0)
-      onDuty = True
-  else:
-    onDuty = False
-
-  if onDuty:
-    dom.disableElement(W_PIN_BOX)
-  else:
-    dom.enableElement(W_PIN_BOX)
+  turnMainOn(ucuq.getHardware(hardware, target))
 
 with open('Body.html', 'r') as file:
   BODY = file.read()

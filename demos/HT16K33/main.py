@@ -5,7 +5,6 @@ sys.path.extend(("../..","../../atlastk.zip"))
 
 import ucuq, atlastk, binascii
 
-onDuty = False
 ht16k33 = None
 mirror = None
 
@@ -14,36 +13,31 @@ pattern = "0" * 32
 TEST_DELAY = 0.05
 
 def test():
-  if ht16k33:
-    for y in range(8):
-      for x in range(16):
-        ht16k33.plot(x,y)
-      ht16k33.show()
-      ucuq.sleep(TEST_DELAY)
-      ht16k33.clear()
-
+  for y in range(8):
     for x in range(16):
-      for y in range(8):
-        ht16k33.plot(x,y)
-      ht16k33.show()
-      ucuq.sleep(TEST_DELAY)
-      ht16k33.clear()
-
-    for x in range(16):
-      for y in range(8):
-        ht16k33.plot(x,y)
-
+      ht16k33.plot(x,y)
     ht16k33.show()
+    ucuq.sleep(TEST_DELAY)
+    ht16k33.clear()
 
-    for b in range(0, 16):
-      ht16k33.setBrightness(b)
-      ucuq.sleep(TEST_DELAY)
+  for x in range(16):
+    for y in range(8):
+      ht16k33.plot(x,y)
+    ht16k33.show()
+    ucuq.sleep(TEST_DELAY)
+    ht16k33.clear()
 
-    for b in range(15, -1, -1):
-      ht16k33.setBrightness(b)
-      ucuq.sleep(TEST_DELAY)
+  ht16k33.rect(0, 0, 15, 7).show()
 
-    ht16k33.clear().show()
+  for b in range(0, 16):
+    ht16k33.setBrightness(b)
+    ucuq.sleep(TEST_DELAY)
+
+  for b in range(15, -1, -1):
+    ht16k33.setBrightness(b)
+    ucuq.sleep(TEST_DELAY)
+
+  ht16k33.clear().show()
 
 
 def drawOnGUI(dom, motif = pattern):
@@ -90,6 +84,7 @@ def drawOnMatrix(motif = pattern):
     if mirror:
       mirror.fill(0).draw(motif, 16, mul=8).show()
 
+
 def draw(dom, motif = pattern):
   global pattern
 
@@ -102,95 +97,33 @@ def draw(dom, motif = pattern):
   setHexa(dom, motif)
 
 
-def updateUI(dom, onDuty):
-  ids = ["MatrixBox", "HexaBox", "MiscBox", "MatricesBox"]
+def turnOnMain(hardware):
+  global ht16k33
 
-  if onDuty:
-    dom.enableElements(ids)
-    dom.disableElement("HardwareBox")
-    dom.setValue("Switch", "true")
-  else:
-    dom.disableElements(ids)
-    dom.enableElement("HardwareBox")
-    dom.setValue("Switch", "false")
+  if not hardware:
+    raise Exception("Kit has no ht16k33 component!")
+  
+  sda = hardware["SDA"]
+  scl = hardware["SCL"]
+  soft = hardware["Soft"]
+  
+  ht16k33 = ucuq.HT16K33(ucuq.I2C(sda, scl, soft=soft))
+  ht16k33.clear().show()
+  ht16k33.setBrightness(0)
+  ht16k33.setBlinkRate(0)
 
-    match dom.getValue("Preset"):
-      case "User":
-        dom.enableElements(["SDA", "SCL"])
-      case "Bipedal":
-        dom.setValues({
-          "SDA": 4,
-          "SCL": 5
-        })
-        dom.disableElements(["SDA", "SCL"])
-      case _:
-        raise Exception("Unknown preset!")
-        
 
 def atk(dom):
-  id = ucuq.getKitId(ucuq.ATKConnect(dom, BODY))
+  infos = ucuq.ATKConnect(dom, BODY)
+
+  if not ht16k33:
+    turnOnMain(ucuq.getHardware(ucuq.getKitHardware(infos), "Matrix"))
 
   draw(dom, "")
 
   dom.executeVoid("patchHexaInput();")
 
-  drawLittleMatrices(dom,MATRICES)
-
-  if not onDuty:
-    if id == ucuq.K_BIPEDAL:
-      dom.setValue("Preset", "Bipedal")
-
-  updateUI(dom, onDuty)
-
-def atkPreset(dom, id):
-  match dom.getValue("Preset"):
-    case "User":
-      dom.setValues({
-        "SDA": "",
-        "SCL": ""
-      })
-    case "Bipedal":
-      pass
-    case _:
-      raise Exception("Unknown preset!")
-    
-  updateUI(dom, False)
-
-
-def launch(dom, sda, scl):
-  global ht16k33, onDuty
-
-  try:
-    ht16k33 = ucuq.HT16K33(ucuq.I2C(sda, scl))
-    ht16k33.clear().show()
-    ht16k33.setBrightness(0)
-    ht16k33.setBlinkRate(0)
-  except Exception as err:
-    dom.alert(err)
-    onDuty = False
-  else:
-    onDuty = True
-
-
-def atkSwitch(dom, id):
-  global onDuty
-
-  state = (dom.getValue(id)) == "true"
-
-  if state:
-    updateUI(dom, state)
-
-    try:
-      sda, scl = (int(value.strip()) for value in (dom.getValues(["SDA", "SCL"])).values())
-    except:
-      dom.alert("No or bad value for SDA/SCL!")
-      updateUI(dom, False)
-    else:
-      launch(dom, sda, scl)
-  else:
-    onDuty = False
-
-  updateUI(dom, onDuty)
+  drawLittleMatrices(dom, MATRICES)
 
 
 def atkTest():
@@ -198,10 +131,6 @@ def atkTest():
 
 
 def atkToggle(dom, id):
-  if not onDuty:
-    dom.alert("Please switch on!")
-    return
-
   global pattern
 
   [x, y] = list(map(lambda v: int(v), (dom.getMark(id)).split()))
@@ -238,20 +167,28 @@ def atkAll(dom):
 def atkBrightness(dom, id):
   ht16k33.setBrightness(int(dom.getValue(id)))
 
+
 def atkBlinkRate(dom, id):
   ht16k33.setBlinkRate(float(dom.getValue(id)))
+
 
 def atkDraw(dom, id):
   draw(dom, MATRICES[int(dom.getMark(id))])
 
+
 def atkMirror(dom, id):
   global mirror
 
-  state = (dom.getValue(id)) == "true"
-
-  if state:
+  if  (dom.getValue(id)) == "true":
     if ( dom.confirm("Please do not confirm unless you know exactly what you are doing!") ):
-      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(8, 9, device = ucuq.Device(id="Bravo")))
+      device = ucuq.Device(id="Golf")
+      hardware = ucuq.getHardware(ucuq.getKitHardware(ucuq.getInfos(device)), "OLED")
+
+      sda = hardware["SDA"]
+      scl = hardware["SCL"]
+      soft = hardware["Soft"]
+
+      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(sda, scl, soft=soft, device=device ))
     else:
       dom.setValue(id, "false")
   else:

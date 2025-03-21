@@ -1,381 +1,470 @@
 {
   "Charlie": {
-    "Preset": {
-      "Hardware": {
-        "mode": "Straight"
-      },
-      "Specs": {
-        "freq": 50,
-        "u16_min": 1639,
-        "u16_max": 8192,
-        "range": 180
-      },
-      "Tweak": {
-        "angle": 90,
-        "offset": 0,
-        "invert": false
-      }
-    },
-    "Motors": {
+    "Servos": {
       "l": {
         "Hardware": {
-          "pin": 11
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 1
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
         },
         "Tweak": {
-          "offset": -115
+          "Angle": 90,
+          "Offset": -115,
+          "Invert": false
         }
       },
       "L": {
         "Hardware": {
-          "pin": 10
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 0
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "R": {
         "Hardware": {
-          "pin": 12
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 2
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
         },
         "Tweak": {
-          "offset": -55
+          "Angle": 90,
+          "Offset": -55,
+          "Invert": false
         }
       },
       "r": {
         "Hardware": {
-          "pin": 13
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 3
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       }
     }
   },
   "Echo": {
-    "Preset": {
-      "Hardware": {
-        "mode": "Straight"
-      },
-      "Specs": {
-        "freq": 50,
-        "u16_min": 1639,
-        "u16_max": 8192,
-        "range": 180
-      },
-      "Tweak": {
-        "angle": 90,
-        "offset": 0,
-        "invert": false
-      }
-    },
-    "Motors": {
+    "Servos": {
       "L": {
         "Hardware": {
-          "pin": 10
+          "Mode": "Straight",
+          "Pin": 10
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
         },
         "Tweak": {
-          "offset": 85
+          "Angle": 90,
+          "Offset": 85,
+          "Invert": false
         }
       },
       "l": {
         "Hardware": {
-          "pin": 11
+          "Mode": "Straight",
+          "Pin": 11
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
         },
         "Tweak": {
-          "offset": -15
+          "Angle": 90,
+          "Offset": -15,
+          "Invert": false
         }
       },
       "R": {
         "Hardware": {
-          "pin": 12
+          "Mode": "Straight",
+          "Pin": 12
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
         },
         "Tweak": {
-          "offset": 225
+          "Angle": 90,
+          "Offset": 225,
+          "Invert": false
         }
       },
       "r": {
         "Hardware": {
-          "pin": 13
+          "Mode": "Straight",
+          "Pin": 13
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
         },
         "Tweak": {
-          "offset": 35
-        }
-      }
-    }
-  },
-  "Brown": {
-    "Preset": {
-      "Hardware": {
-        "mode": "Straight"
-      },
-      "Specs": {
-        "freq": 50,
-        "u16_min": 1639,
-        "u16_max": 8192,
-        "range": 180
-      },
-      "Tweak": {
-        "angle": 90,
-        "offset": 0,
-        "invert": false
-      }
-    },
-    "Motors": {
-      "L": {
-        "Hardware": {
-          "pin": 10
-        },
-        "Tweak": {
-          "offset": 85
-        }
-      },
-      "l": {
-        "Hardware": {
-          "pin": 11
-        },
-        "Tweak": {
-          "offset": -15
-        }
-      },
-      "R": {
-        "Hardware": {
-          "pin": 12
-        },
-        "Tweak": {
-          "offset": 225
-        }
-      },
-      "r": {
-        "Hardware": {
-          "pin": 13
-        },
-        "Tweak": {
-          "offset": 35
+          "Angle": 90,
+          "Offset": 35,
+          "Invert": false
         }
       }
     }
   },
   "Foxtrot": {
     "_comment": "F: Front; B: Back; L: Left; R: Right; a, b, c the motors from the body to the extremity.",
-    "Preset": {
-      "Hardware": {
-        "mode": "PCA",
-        "sda": 13,
-        "scl": 14,
-        "offset": 9
-      },
-      "Specs": {
-        "freq": 50,
-        "u16_min": 1632,
-        "u16_max": 8800,
-        "range": 180
-      },
-      "Tweak": {
-        "angle": 90,
-        "offset": 0,
-        "invert": false
-      }
-    },
-    "Motors": {
+    "Servos": {
       "FLa": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 0
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "FLb": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 1
         },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
         "Tweak": {
-          "invert": true
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
         }
       },
       "FLc": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 2
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "BLc": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 5
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "BLb": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 6
         },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
         "Tweak": {
-          "invert": true
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
         }
       },
       "BLa": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 7
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "BRa": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 8
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "BRb": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 9
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "BRc": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 10
         },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
         "Tweak": {
-          "invert": true
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
         }
       },
       "FRc": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 13
         },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
         "Tweak": {
-          "invert": true
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
         }
       },
       "FRb": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 14
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       },
       "FRa": {
         "Hardware": {
+          "Mode": "PCA",
+          "sda": 13,
+          "scl": 14,
+          "Offset": 9,
           "channel": 15
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
         }
       }
     }
   },
-  "Yellow": {
-    "Preset": {
-      "Hardware": {
-        "mode": "PCA",
-        "soft": false,
-        "sda": 8,
-        "scl": 9,
-        "offset": 8
-      },
-      "Specs": {
-        "freq": 50,
-        "u16_min": 1472,
-        "u16_max": 8352,
-        "range": 190
-      },
-      "Tweak": {
-        "angle": 90,
-        "invert": true
-      }
-    },
-    "Motors": {
-      "a": {
-        "Hardware": {
-          "channel": 0
-        },
-        "Tweak": {
-          "offset": -8
-        }
-      },
-      "b": {
-        "Hardware": {
-          "channel": 1
-        },
-        "Tweak": {
-          "offset": -56
-        }
-      },
-      "c": {
-        "Hardware": {
-          "channel": 2
-        },
-        "Tweak": {
-          "offset": 136
-        }
-      },
-      "d": {
-        "Hardware": {
-          "channel": 3
-        },
-        "Tweak": {
-          "offset": -56
-        }
-      }
-    }
-  },
-  "Delta": {
-    "Preset": {
-      "Hardware": {
-        "mode": "Straight"
-      },
-      "Specs": {
-        "freq": 50,
-        "u16_min": 1639,
-        "u16_max": 8192,
-        "range": 180
-      },
-      "Tweak": {
-        "angle": 90,
-        "offset": 0,
-        "invert": true
-      }
-    },
-    "Motors": {
-      "L": {
-        "Hardware": {
-          "pin": 12
-        }
-      },
+  "Golf": {
+    "_comment": null,
+    "Servos": {
       "l": {
         "Hardware": {
-          "pin": 13
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 3
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
+        }
+      },
+      "L": {
+        "Hardware": {
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 0
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
         }
       },
       "R": {
         "Hardware": {
-          "pin": 14
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 2
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
         }
       },
       "r": {
         "Hardware": {
-          "pin": 15
-        }
-      }
-    }
-  },
-  "Red": {
-    "Preset": {
-      "Hardware": {
-        "mode": "Straight"
-      },
-      "Specs": {
-        "freq": 50,
-        "u16_min": 1639,
-        "u16_max": 8192,
-        "range": 180
-      },
-      "Tweak": {
-        "angle": 90,
-        "offset": 0,
-        "invert": true
-      }
-    },
-    "Motors": {
-      "L": {
-        "Hardware": {
-          "pin": 15
-        }
-      },
-      "l": {
-        "Hardware": {
-          "pin": 16
-        }
-      },
-      "R": {
-        "Hardware": {
-          "pin": 2
-        }
-      },
-      "r": {
-        "Hardware": {
-          "pin": 4
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 1
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1632,
+          "U16Max": 8800,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": true
         }
       }
     }

@@ -16,17 +16,9 @@ state = S_OFF_DUTY
 D_RATIO = "Ratio"
 D_WIDTH = "Width"
 
-# Presets
-P_USER = "None"
-P_BIPEDAL = "Bipedal"
-P_DOG = "Dog"
-P_DIY = "DIY"
-
 # Interface elements
-W_PRESET = "Preset"
-W_HARDWARE_BOX = "HardwareBox"
 W_SWITCH = "Switch"
-W_SETTINGS_BOX = "SettingsBox"
+W_HARDWARE_BOX = "HardwareBox"
 W_MODE = "Mode"
 W_PIN = "Pin"
 W_SDA = "SDA"
@@ -50,42 +42,6 @@ O_FREQ = "TrueFreq"
 O_RATIO = "TrueRatio"
 O_WIDTH = "TrueWidth"
 O_PRESCALE = "TruePrescale"
-
-
-# Default hardware settings
-SETTINGS = {
-  P_USER: {
-    W_MODE: M_NONE,
-    W_OFFSET: "0"
-  },
-  P_BIPEDAL: {
-    W_MODE: M_STRAIGHT,
-    W_PIN: "10",
-    W_WIDTH: "1.5"
-  },
-  P_DOG: {
-    W_MODE: M_PCA9685,
-    W_SOFT: "false",
-    W_SDA: "13",
-    W_SCL: "14",
-    W_OFFSET: "9",
-    W_WIDTH: "1.5"
-  },
-  P_DIY: {
-    W_MODE: M_STRAIGHT,
-    W_SOFT: "false",
-    W_PIN: "12",
-    W_WIDTH: "1.5"
-  }
-}
-
-# Presets by kit ids
-PRESETS = {
-  ucuq.K_UNKNOWN: P_USER,
-  ucuq.K_BIPEDAL: P_BIPEDAL,
-  ucuq.K_DOG: P_DOG,
-  ucuq.K_DIY_SERVOS: P_DIY
-}
 
 
 def getParams():
@@ -224,7 +180,7 @@ def initPWM(inputs):
   global pwm
 
   if inputs[W_MODE] == M_STRAIGHT:
-    pwm = ucuq.PWM(inputs[W_PIN])
+    pwm = ucuq.PWM(inputs[W_PIN], freq=50, u16=0).setNS(0)
     pwm.setFreq(inputs[W_FREQ])
   elif inputs[W_MODE] == M_PCA9685:
     i2c = ucuq.SoftI2C if inputs[W_SOFT] else ucuq.I2C
@@ -262,17 +218,23 @@ def setWidth(width):
   return getParams()
 
 
+def updateHardware_(dom, hardware):
+  servo = ucuq.getHardware(hardware, "Servo")
+
+  if servo:
+    updateSettingsUIFollowingMode_(dom, servo[W_MODE])
+
+    dom.setValues(servo)
+
+
 def atk(dom):
-  preset = PRESETS[ucuq.getKitId(ucuq.ATKConnect(dom, BODY))]
+  infos = ucuq.ATKConnect(dom, BODY)
 
-  updateSettingsUIFollowingPreset_(dom, preset)
+  updateHardware_(dom, ucuq.getKitHardware(infos))
 
-  dom.setValue(W_PRESET, preset)
-  
   ucuq.addCommand(MC_INIT)
   
   updateDutyBox(dom)
-  dom.enableElement(W_HARDWARE_BOX)
 
 
 def updateSettingsUIFollowingMode_(dom, mode):
@@ -289,20 +251,6 @@ def updateSettingsUIFollowingMode_(dom, mode):
     raise Exception("Unknown mode!")
 
 
-def updateSettingsUIFollowingPreset_(dom, preset):
-  setting = SETTINGS[preset]
-
-  updateSettingsUIFollowingMode_(dom, setting[W_MODE])
-
-  dom.setValues(setting)
-
-
-def atkPreset(dom, id):
-  preset = dom.getValue(id)
-
-  updateSettingsUIFollowingPreset_(dom, preset)
-
-
 def atkMode(dom, id):
   updateSettingsUIFollowingMode_(dom, dom.getValue(id))
   
@@ -317,14 +265,14 @@ def atkSwitch(dom, id):
       dom.setValue(id, False)
     else:
       state = S_PCA9685 if inputs[W_MODE] == M_PCA9685 else S_STRAIGHT
-      dom.disableElements([W_SETTINGS_BOX, W_PRESET])
+      dom.disableElement(W_HARDWARE_BOX)
       updateDuties(dom, initPWM(inputs))
   else:
     if state:
       pwm.deinit()
       state = S_OFF_DUTY
     updateDuties(dom)
-    dom.enableElements([W_SETTINGS_BOX, W_PRESET])
+    dom.enableElement(W_HARDWARE_BOX)
 
 
 def atkSelect(dom):

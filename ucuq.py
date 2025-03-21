@@ -3,36 +3,42 @@
 # COMPUTER GENERATED FILE #
 ###########################
 
-import os, json, socket, sys, threading, datetime, time, threading
+import datetime, http, os, json, socket, sys, threading, time, urllib
 from inspect import getframeinfo, stack
 
-CONFIG_FILE = ( "/home/csimon/q37/epeios/tools/ucuq/remote/wrappers/PYH/" if "Q37_EPEIOS" in os.environ else "../" ) + "ucuq.json"
+
+CONFIG_FILE_ = ( "/home/csimon/q37/epeios/other/BPY/Apps/UCUq/" if "Q37_EPEIOS" in os.environ else "../" ) + "ucuq.json"
+KITS_FILE_ = ( "/home/csimon/epeios/other/BPY/Apps/UCUq/" if "Q37_EPEIOS" in os.environ else "../" ) + "kits.json"
 
 try:
-  with open(CONFIG_FILE, "r") as config:
-    CONFIG = json.load(config)
+  with open(CONFIG_FILE_, "r") as config:
+    CONFIG_ = json.load(config)
 except:
-  CONFIG = None
+  CONFIG_ = None
+
+
+try:
+  with open(KITS_FILE_, "r") as kits:
+    KITS_ = json.load(kits)
+except:
+  KITS_ = None
+
 
 UCUQ_DEFAULT_HOST_ = "ucuq.q37.info"
 UCUQ_DEFAULT_PORT_ = "53800"
 
-UCUQ_HOST_ = CONFIG["Proxy"]["Host"] if CONFIG and "Proxy" in CONFIG and "Host" in CONFIG["Proxy"] and CONFIG["Proxy"]["Host"] else UCUQ_DEFAULT_HOST_
+UCUQ_HOST_ = CONFIG_["Proxy"]["Host"] if CONFIG_ and "Proxy" in CONFIG_ and "Host" in CONFIG_["Proxy"] and CONFIG_["Proxy"]["Host"] else UCUQ_DEFAULT_HOST_
 
 # only way to test if the entry contains a valid int.
 try:
-  UCUQ_PORT_ = int(CONFIG["Proxy"]["Port"])
+  UCUQ_PORT_ = int(CONFIG_["Proxy"]["Port"])
 except:
   UCUQ_PORT_ = int(UCUQ_DEFAULT_PORT_)
 
 PROTOCOL_LABEL_ = "c37cc83e-079f-448a-9541-5c63ce00d960"
 PROTOCOL_VERSION_ = "0"
 
-uuid_ = 0
-device_ = None
 _writeLock = threading.Lock()
-
-ITEMS_ = "i_"
 
 # Request
 R_EXECUTE_ = "Execute_1"
@@ -46,13 +52,6 @@ A_ERROR_ = 2
 A_PUZZLED_ = 3
 A_DISCONNECTED_ = 4
 
-
-def GetUUID_():
-  global uuid_
-
-  uuid_ += 1
-
-  return uuid_
 
 def recv_(socket, size):
   buffer = bytes()
@@ -300,12 +299,28 @@ def getDemoDevice():
   if device.connect(token = ONE_DEVICE_VTOKEN, errorAsException = False):
     return device
   else:
-    return None   
+    return None 
 
+def getWebFileContent(url):
+  parsedURL = urllib.parse.urlparse(url)
+
+  with http.client.HTTPSConnection(parsedURL.netloc) as connection:
+    connection.request("GET", parsedURL.path)
+
+    response = connection.getresponse()
+
+    if response.status == 200:
+      return response.read().decode('utf-8')  
+    else:
+      raise Exception(f"Error retrieving the file '{url}': {response.status} {response.reason}")
 ###############
 # COMMON PART #
 ###############
 
+
+import zlib, base64
+
+ITEMS_ = "i_"
 
 # Keys
 K_DEVICE = "Device"
@@ -315,18 +330,31 @@ K_DEVICE_ID = "Id"
 ONE_DEVICE_VTOKEN = "9a53b804-165c-4b82-9975-506a43ed146f"
 ALL_DEVICES_VTOKEN = "84210c27-cdf8-438f-8641-a2e12380c2cf"
 
+uuid_ = 0
+device_ = None
+
+unpak_ = lambda data : zlib.decompress(base64.b64decode(data)).decode()
+
+def GetUUID_():
+  global uuid_
+
+  uuid_ += 1
+
+  return uuid_
+
+
 def displayMissingConfigMessage_():
   displayExitMessage_("Please launch the 'Config' app first to set the device to use!")
 
 
 def handlingConfig_(token, id):
-  if not CONFIG:
+  if not CONFIG_:
     displayMissingConfigMessage_()
 
-  if K_DEVICE not in CONFIG:
+  if K_DEVICE not in CONFIG_:
     displayMissingConfigMessage_()
 
-  device = CONFIG[K_DEVICE]
+  device = CONFIG_[K_DEVICE]
 
   if not token:
     if K_DEVICE_TOKEN not in device:
@@ -354,174 +382,61 @@ def setDevice(id = None, *, device = None, token = None):
 
 
 # Infos keys and subkeys
-I_KITS_KEY = "Kits"
-I_KIT_KEY = "Kit"
-I_DEVICE_KEY = "Device"
-I_DEVICE_ID_KEY = "Id"
-I_DEVICE_UNAME_KEY = "uname"
-I_KIT_BRAND_KEY = "brand"
-I_KIT_MODEL_KEY = "model"
-I_KIT_VARIANT_KEY = "variant"
-I_KIT_LABEL_KEY = "label"
-I_UNAME_KEY = "uname"
+IK_DEVICE_ID_ = "DeviceId"
+IK_DEVICE_UNAME_ = "uname"
+IK_HARDWARE = "Hardware"
+IK_KIT_LABEL = "KitLabel"
+
+# Kits keys
+IK_BRAND_ = "brand"
+IK_MODEL_ = "model"
+IK_VARIANT_ = "variant"
 
 
 INFO_SCRIPT_ = f"""
-def ucuqGetKit():
-  try:
-    return CONFIG_["{I_KIT_KEY}"]
-  except:
-    try:
-      return CONFIG_["{I_KITS_KEY}"][getIdentificationId_(IDENTIFICATION_)]
-    except:
-      return None
-
 def ucuqStructToDict(obj):
     return {{attr: getattr(obj, attr) for attr in dir(obj) if not attr.startswith('__')}}
 
 def ucuqGetInfos():
+  infos = {{
+    "{IK_DEVICE_ID_}": getIdentificationId_(IDENTIFICATION_),
+    "{IK_DEVICE_UNAME_}": ucuqStructToDict(uos.uname())
+  }}
+
+  if "{IK_KIT_LABEL}" in CONFIG_:
+    infos["{IK_KIT_LABEL}"] = CONFIG_["{IK_KIT_LABEL}"]
+
   return {{
-    "{I_DEVICE_KEY}" : {{
-      "{I_DEVICE_ID_KEY}": getIdentificationId_(IDENTIFICATION_),
-      "{I_DEVICE_UNAME_KEY}": ucuqStructToDict(uos.uname())
-    }},
-    "{I_KIT_KEY}": ucuqGetKit(),
+    "{IK_DEVICE_ID_}": getIdentificationId_(IDENTIFICATION_),
+    "{IK_DEVICE_UNAME_}": ucuqStructToDict(uos.uname())
   }}
 """
 
-ATK_STYLE = """
+ATK_BODY_ = """
 <style>
-.ucuq {
-  max-height: 200px;
-  overflow: hidden;
-  opacity: 1;
-  animation: ucuqFadeOut 2s forwards;
-}
-
-@keyframes ucuqFadeOut {
-  0% {
+  .ucuq {
     max-height: 200px;
-  }
-  100% {
-    max-height: 0;
-  }
-}
-</style>
-"""
+    overflow: hidden;
+    opacity: 1;
+    animation: ucuqFadeOut 2s forwards;
+   }
 
-ATK_BODY = """
+  @keyframes ucuqFadeOut {
+    0% {
+      max-height: 200px;
+     }
+    100% {
+      max-height: 0;
+     }
+   }
+</style>
 <div style="display: flex; justify-content: center;" class="ucuq">
-  <h3>'{}' (<em>{}</em>)</h3>
+  <h3>'BRACES' (<em>BRACES</em>)</h3>
 </div>
 <div id="ucuq_body">
 </div>
-"""
+""".replace("{", "{{").replace("}", "}}").replace("BRACES", "{}")
 
-# Handled kits.
-K_UNKNOWN = 0
-K_BIPEDAL = 1
-K_DOG = 2
-K_DIY_DISPLAYS = 3
-K_DIY_SERVOS = 4
-K_DIY_FREE = 5
-K_WOKWI_DISPLAYS = 6
-K_WOKWI_SERVOS = 7
-
-KITS_ = {
-  "Freenove/Bipedal/RPiPicoW": K_BIPEDAL,
-  "Freenove/Bipedal/RPiPico2W": K_BIPEDAL,
-  "Freenove/Dog/ESP32": K_DOG,
-  "q37.info/DIY/Displays": K_DIY_DISPLAYS,
-  "q37.info/DIY/Servos": K_DIY_SERVOS,
-  "q37.info/Wokwi/Displays": K_WOKWI_DISPLAYS,
-  "q37.info/Wokwi/Servos": K_WOKWI_SERVOS,
-}
-
-# Hardware kits
-
-H_BIPEDAL = {
-  "OnBoardLed": ["LED", True],
-  "RGB": {
-    "Pin": 16,
-    "Count": 4,
-    "Limiter": 30,
-    "Offset": 0,
-  }
-}
-
-H_DOG = {
-  "OnBoardLed":[2, False],
-  "RGB": {
-    "Pin": 0,
-    "Count": 4,
-    "Limiter": 30,
-    "Offset": 0,
-  }
-}
-
-H_DIY_DISPLAYS = {
-  "OnBoardLed": [8, False],
-  "Ring": {
-    "Pin": 2,
-    "Count": 8,
-    "Offset": 3,
-    "Limiter": 30,
-  },
-  "OLED": {
-    "Soft": False,
-    "SDA": 8,
-    "SCL": 9,
-  },
-  "LCD": {
-    "Soft": True,
-    "SDA": 6,
-    "SCL": 7
-  },
-  "Buzzer": {
-    "Pin": 5
-  },
-}
-
-# NOTA : below 'Pins' (GPIO) correspond to respectively
-# physical pins 'D6' 'D7' 'D5' 'D8'.
-H_DIY_SERVOS = {
-  "OnBoardLed":  [2, False],
-  "Servos": {
-    "Mode": "Straight",
-    "Pins": [12, 13, 14, 15]
-  }
-}
-
-H_DIY_FREE = {
-  "OnBoardLed":  [8, False],
-  "Servos": {
-    "Mode": "Straight",
-    "Pins": [12, 13, 14, 27]
-  }
-}
-
-H_WOKWI_DISPLAYS = {
-  "OnBoardLed": [2, True],
-  "Ring": {
-    "Pin": 15,
-    "Count": 16,
-    "Offset": -7,
-    "Limiter": 255,
-  },
-  "OLED": {
-    "Soft": False,
-    "SDA": 21,
-    "SCL": 22,
-  },
-  "LCD": {
-    "Soft": True,
-    "SDA": 25,
-    "SCL": 26
-  },
-  "Buzzer": {
-    "Pin": 32
-  },
-}
 
 CB_AUTO = 0
 CB_MANUAL = 1
@@ -572,7 +487,7 @@ class Device(Device_):
     self.addCommand(f"time.sleep({secs})")
 
 
-def getInfos(device = None):
+def getBaseInfos_(device = None):
   device = getDevice_(device)
 
   device.addCommand(INFO_SCRIPT_, False)
@@ -580,32 +495,92 @@ def getInfos(device = None):
   return device.commit("ucuqGetInfos()")
 
 
-def getKitLabel(infos):
-  kit = infos[I_KIT_KEY]
+def getKitFromDeviceId_(deviceId):
+  for kit in KITS_:
+    if deviceId in kit["devices"]:
+      return kit
+  else:
+    return None
+  
+
+buildKitLabel_ = lambda brand, model, variant : f"{brand}/{model}/{variant}"
+  
+
+def getKitLabelFormDeviceId_(deviceId):
+  kit = getKitFromDeviceId_(deviceId)
 
   if kit:
-    return f"{kit[I_KIT_BRAND_KEY]}/{kit[I_KIT_MODEL_KEY]}/{kit[I_KIT_VARIANT_KEY]}"
+    return buildKitLabel_(kit[IK_BRAND_],kit[IK_MODEL_],kit[IK_VARIANT_])
+  else:
+    return "Undefined"  
+  
+
+def getKitFromLabel_(label):
+  brand, model, variant = label.split('/')
+
+  for kit in KITS_:
+    if kit["brand"] == brand and kit["model"] == model and kit["variant"] == variant:
+      return kit
+  else:
+    return None
+  
+
+def getKitLabel(infos):
+  return infos[IK_KIT_LABEL]
+  
+
+def getKit_(infosOrLabel):
+  if type(infosOrLabel) != str:
+    infosOrLabel = getKitLabel(infosOrLabel)
+
+  return getKitFromLabel_(infosOrLabel)
+
+
+def getKitHardware(infosOrLabel):
+  kit = getKit_(infosOrLabel)
+
+  if kit:
+    return kit["hardware"]
   else:
     return "Undefined"
+  
+
+getHardware_ = lambda hardware, key, index: hardware[key][index] if key in hardware and index < len(hardware[key]) else None
 
 
-def getKitId(infos):
-  label = getKitLabel(infos)
-
-  if label in KITS_:
-    return KITS_[label]
+def getHardware(hardware, stringOrList, index = 0):
+  if type(stringOrList) == str:
+    return getHardware_(hardware, stringOrList, index)
   else:
-    return K_UNKNOWN
+    for key in stringOrList:
+      if result := getHardware_(hardware, key, index):
+        return result
+
+  return None      
   
 
 def getDeviceId(infos):
-  return infos[I_DEVICE_KEY][I_DEVICE_ID_KEY]
-  
+  return infos[IK_DEVICE_ID_]
+
+
+def getInfos(device):
+  infos = getBaseInfos_(device)
+
+  if not IK_KIT_LABEL in infos:
+    infos[IK_KIT_LABEL] = getKitLabelFormDeviceId_(getDeviceId(infos))
+    
+  infos[IK_HARDWARE] = getKitHardware(infos)
+
+  return infos
+
 
 def ATKConnect(dom, body, *, device = None):
+  if not KITS_:
+    raise Exception("No kits defined!")
+
   dom.inner("", "<h3>Connecting…</h3>")
   
-  if device or CONFIG:
+  if device or CONFIG_:
     device = getDevice_(device)
   else:
     device = getDemoDevice()
@@ -613,21 +588,19 @@ def ATKConnect(dom, body, *, device = None):
   if not device:
     dom.inner("", "<h3>ERROR: Please launch the 'Config' application!</h3>")
     raise SystemExit("Unable to connect to a device!")
-  else:
-    setDevice(device = device)
-    infos = getInfos(device)
   
-  dom.inner("", ATK_BODY.format(getKitLabel(infos), getDeviceId(infos)))
+  setDevice(device = device)
+  infos = getInfos(device)
+
+  deviceId =  getDeviceId(infos)
+
+  dom.inner("", ATK_BODY_.format(getKitLabelFormDeviceId_(deviceId), deviceId))
 
   dom.inner("ucuq_body", body)
 
   time.sleep(0.5)
 
-  dom.begin("", ATK_STYLE)
-
   time.sleep(1.5)
-
-  dom.inner("", body)
 
   return infos
 
@@ -649,16 +622,24 @@ def getDevice_(device = None, *, id = None, token = None):
     return device
 
 
+def getDevice():
+  return device_
+
+
 def addCommand(command, /,device = None):
   getDevice_(device).addCommand(command)
 
 
 # does absolutely nothing whichever method is called.
+# 'if Nothing()' returns 'False'.
 class Nothing:
   def __getattr__(self, name):
     def doNothing(*args, **kwargs):
       return self
     return doNothing
+  
+  def __bool__(self):
+    return False
 
 
 class Core_:
@@ -672,6 +653,9 @@ class Core_:
 
   def getDevice(self):
     return self.device_
+  
+  def getId(self):
+    return self.id
   
   def init(self, modules, instanciation, device,*,before=""):
     self.id = GetUUID_()
@@ -818,6 +802,10 @@ class HT16K33(Core_):
 
   def plot(self, x, y, ink=True):
     return self.addMethods(f"plot({x}, {y}, ink={1 if ink else 0})")  
+  
+  def rect(self, x0, y0, x1, y1, ink = True):
+    return self.addMethods(f"rect({x0}, {y0}, {x1}, {y1}, ink={1 if ink else 0})")  
+
 
   def show(self):
     return self.addMethods(f"render()")
@@ -1146,11 +1134,7 @@ class SSD1306_I2C(SSD1306):
     super().init(("SSD1306-1", "SSD1306_I2C-1"), f"SSD1306_I2C({width}, {height}, {i2c.getObject()}, {addr}, {external_vcc})", i2c.getDevice())
 
 
-def pwmJumps(jumps, step = 100, delay = 0.05, *,device = None):
-  device = getDevice_(device)
-
-  device.addModule("PWMJumps-1")
-
+def pwmJumps(jumps, step = 100, delay = 0.05):
   command = "pwmJumps([\n"
 
   for jump in jumps:
@@ -1158,16 +1142,36 @@ def pwmJumps(jumps, step = 100, delay = 0.05, *,device = None):
 
   command += f"], {step}, {delay})"
 
-  device.addCommand(command)
+  return command
 
-def servoMoves(moves, step = 100, delay = 0.05, *,device = None):
-  jumps = []
+
+def execute_(command, device):
+    device.addModule("PWMJumps-1")
+    device.addCommand(command)
+
+
+def servoMoves(moves, step = 100, delay = 0.05):
+  jumps = {}
+  devices = {}
+  commands = {}
   
   for move in moves:
     servo = move[0]
-    jumps.append([servo.pwm, servo.angleToDuty(move[1])])
+    key = id(servo.getDevice())
 
-  pwmJumps(jumps, step, delay, device = device)
+    if not key in devices:
+      devices[key] = servo.getDevice()
+      jumps[key] = []
+      commands[key] = []
+
+    jumps[key].append([servo.pwm, servo.angleToDuty(move[1])])
+
+  for key in jumps:
+    commands[key].append(pwmJumps(jumps[key], step, delay))
+
+  for key in commands:
+    for command in commands[key]:
+      execute_(command, devices[key])
 
 def rbShade(variant, i, max):
   match int(variant) % 6:
