@@ -228,7 +228,7 @@ def updateHardware_(dom, hardware):
 
 
 def atk(dom):
-  infos = ucuq.ATKConnect(dom, BODY)
+  infos = ucuq.ATKConnect(dom, BODY, True)
 
   updateHardware_(dom, ucuq.getKitHardware(infos))
 

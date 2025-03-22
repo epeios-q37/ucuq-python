@@ -313,6 +313,10 @@ def getWebFileContent(url):
       return response.read().decode('utf-8')  
     else:
       raise Exception(f"Error retrieving the file '{url}': {response.status} {response.reason}")
+    
+def getKits():
+  pass# With Python, the kits are already retrieved.
+
 ###############
 # COMMON PART #
 ###############
@@ -333,7 +337,7 @@ ALL_DEVICES_VTOKEN = "84210c27-cdf8-438f-8641-a2e12380c2cf"
 uuid_ = 0
 device_ = None
 
-unpak_ = lambda data : zlib.decompress(base64.b64decode(data)).decode()
+unpack_ = lambda data : zlib.decompress(base64.b64decode(data)).decode()
 
 def GetUUID_():
   global uuid_
@@ -406,10 +410,7 @@ def ucuqGetInfos():
   if "{IK_KIT_LABEL}" in CONFIG_:
     infos["{IK_KIT_LABEL}"] = CONFIG_["{IK_KIT_LABEL}"]
 
-  return {{
-    "{IK_DEVICE_ID_}": getIdentificationId_(IDENTIFICATION_),
-    "{IK_DEVICE_UNAME_}": ucuqStructToDict(uos.uname())
-  }}
+  return infos
 """
 
 ATK_BODY_ = """
@@ -497,7 +498,7 @@ def getBaseInfos_(device = None):
 
 def getKitFromDeviceId_(deviceId):
   for kit in KITS_:
-    if deviceId in kit["devices"]:
+    if "devices" in kit and deviceId in kit["devices"]:
       return kit
   else:
     return None
@@ -574,7 +575,9 @@ def getInfos(device):
   return infos
 
 
-def ATKConnect(dom, body, *, device = None):
+def ATKConnect(dom, body, demo = False, *, device = None):
+  getKits()
+  
   if not KITS_:
     raise Exception("No kits defined!")
 
@@ -582,7 +585,7 @@ def ATKConnect(dom, body, *, device = None):
   
   if device or CONFIG_:
     device = getDevice_(device)
-  else:
+  elif demo:
     device = getDemoDevice()
 
   if not device:
@@ -594,7 +597,7 @@ def ATKConnect(dom, body, *, device = None):
 
   deviceId =  getDeviceId(infos)
 
-  dom.inner("", ATK_BODY_.format(getKitLabelFormDeviceId_(deviceId), deviceId))
+  dom.inner("", ATK_BODY_.format(infos[IK_KIT_LABEL], deviceId))
 
   dom.inner("ucuq_body", body)
 

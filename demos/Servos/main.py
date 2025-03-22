@@ -81,7 +81,7 @@ def displayMacros(dom):
 
 KIT_LABELS = {
   "Bipedal": "Freenove/Bipedal/RPiPico(2)W",
-  "DIY": "q37.info/DIY/Samples",
+  "DIY": "q37.info/DIY/Displays",
   "Dog": "Freenove/Dog/ESP32"
 }
 
@@ -95,7 +95,7 @@ def updateFileList(dom, kitLabel = ""):
 
 
 def atk(dom):
-  infos = ucuq.ATKConnect(dom, BODY)
+  infos = ucuq.ATKConnect(dom, BODY, True)
 
   # createCohortServos()
 

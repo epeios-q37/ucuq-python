@@ -114,7 +114,7 @@ def turnOnMain(hardware):
 
 
 def atk(dom):
-  infos = ucuq.ATKConnect(dom, BODY)
+  infos = ucuq.ATKConnect(dom, BODY, True)
 
   if not ht16k33:
     turnOnMain(ucuq.getHardware(ucuq.getKitHardware(infos), "Matrix"))

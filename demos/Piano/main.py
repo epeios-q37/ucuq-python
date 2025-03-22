@@ -29,7 +29,7 @@ def turnMainOn(hardware):
 def atk(dom):
   global pwm, target, hardware
 
-  infos = ucuq.ATKConnect(dom, BODY)
+  infos = ucuq.ATKConnect(dom, BODY, True)
 
   if not pwm:
     hardware = ucuq.getKitHardware(infos)
