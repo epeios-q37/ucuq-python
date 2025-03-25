@@ -193,7 +193,7 @@ def turnOLEDOn(hardware):
 
 
 def atk(dom):
-  infos = ucuq.ATKConnect(dom, BODY, True)
+  infos = ucuq.ATKConnect(dom, BODY)
 
   hardware = ucuq.getKitHardware(infos)
 

@@ -95,7 +95,7 @@ def updateFileList(dom, kitLabel = ""):
 
 
 def atk(dom):
-  infos = ucuq.ATKConnect(dom, BODY, True)
+  infos = ucuq.ATKConnect(dom, BODY)
 
   # createCohortServos()
 

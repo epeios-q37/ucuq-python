@@ -134,7 +134,7 @@ def turnOnMatrix(hardware):
 
 
 def atk(dom):
-  infos = ucuq.ATKConnect(dom, BODY, True)
+  infos = ucuq.ATKConnect(dom, BODY)
 
   dom.executeVoid("setColorWheel()")
   dom.executeVoid(f"colorWheel.rgb = [0, 0, 0]")
