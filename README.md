@@ -53,7 +53,7 @@ import ucuq
 ucuq.GPIO(<led_pin>).high()
 ```
 
-Replace `<led_pin>` with the number corresponding of the onboard led pin number or string (or of whichever led connected to your microcontroller). With some controller, the led lights up when the corresponding pin is at low level, so you have to replace `high()` with `low())`. Launch this program with *python3*.
+Replace `<led_pin>` with the number corresponding of the onboard led pin number or string (or of whichever led connected to your microcontroller). With some controllers, the led lights up when the corresponding pin is at low level, so you have to replace `high()` with `low()`. Launch this program with *python3*.
 
 See the above online demonstrations link for the *API* and examples of use.
 

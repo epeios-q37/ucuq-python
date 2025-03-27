@@ -549,12 +549,12 @@ def getKitHardware(infosOrLabel):
 getHardware_ = lambda hardware, key, index: hardware[key][index] if key in hardware and index < len(hardware[key]) else None
 
 
-def getHardware(hardware, stringOrList, keys=None, *, index = 0):
+def getHardware(kitHardware, stringOrList, keys=None, *, index = 0):
   if type(stringOrList) == str:
-    hardware = getHardware_(hardware, stringOrList, index)
+    hardware = getHardware_(kitHardware, stringOrList, index)
   else:
     for key in stringOrList:
-      if hardware := getHardware_(hardware, key, index):
+      if hardware := getHardware_(kitHardware, key, index):
         break
 
   if hardware and keys:
@@ -775,11 +775,11 @@ class I2C(I2C_Core_):
 
 
 class SoftI2C(I2C):
-  def init(self, sda, scl, *, device = None):
+  def init(self, sda, scl, *, soft = None, device = None):
     if soft == None:
       soft = True
 
-    super().init(sda, scl, soft = True, device = device)
+    super().init(sda, scl, soft = soft, device = device)
 
 
 class HT16K33(Core_):
