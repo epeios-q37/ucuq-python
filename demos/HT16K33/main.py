@@ -103,11 +103,7 @@ def turnOnMain(hardware):
   if not hardware:
     raise Exception("Kit has no ht16k33 component!")
   
-  sda = hardware["SDA"]
-  scl = hardware["SCL"]
-  soft = hardware["Soft"]
-  
-  ht16k33 = ucuq.HT16K33(ucuq.I2C(sda, scl, soft=soft))
+  ht16k33 = ucuq.HT16K33(ucuq.I2C(*ucuq.getHardware(hardware, "Matrix", ["SDA", "SCL", "Soft"])))
   ht16k33.clear().show()
   ht16k33.setBrightness(0)
   ht16k33.setBlinkRate(0)
@@ -117,7 +113,7 @@ def atk(dom):
   infos = ucuq.ATKConnect(dom, BODY)
 
   if not ht16k33:
-    turnOnMain(ucuq.getHardware(ucuq.getKitHardware(infos), "Matrix"))
+    turnOnMain(ucuq.getKitHardware(infos))
 
   draw(dom, "")
 
@@ -182,13 +178,8 @@ def atkMirror(dom, id):
   if  (dom.getValue(id)) == "true":
     if ( dom.confirm("Please do not confirm unless you know exactly what you are doing!") ):
       device = ucuq.Device(id="Golf")
-      hardware = ucuq.getHardware(ucuq.getKitHardware(ucuq.getInfos(device)), "OLED")
 
-      sda = hardware["SDA"]
-      scl = hardware["SCL"]
-      soft = hardware["Soft"]
-
-      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(sda, scl, soft=soft, device=device ))
+      mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(*ucuq.getHardware(ucuq.getKitHardware(ucuq.getInfos(device)), "OLED", ["SDA", "SCL", "Soft"]), device=device ))
     else:
       dom.setValue(id, "false")
   else:

@@ -15,6 +15,7 @@ DEFAULT_SPEED = 10
 
 contentsHidden = True
 
+show = {}
 macros = {}
 
 # Hardware modes
@@ -79,19 +80,28 @@ def displayMacros(dom):
   dom.inner("Macros", html)
 
 
-KIT_LABELS = {
+SOLOS = {
   "Bipedal": "Freenove/Bipedal/RPiPico(2)W",
   "DIY": "q37.info/DIY/Displays",
   "Dog": "Freenove/Dog/ESP32"
 }
 
-def updateFileList(dom, kitLabel = ""):
+TROOPS = ["Cats"]
+
+def updateFileList(dom, soloId = ""):
   html = ""
 
-  for kit in KIT_LABELS:
-    html = f"<option value=\"{kit}\" {'selected=\"selected\"' if kit == kitLabel else ''}>{kit}</option>\n" + html
+  for solo in SOLOS:
+    html = f"<option value=\"{solo}\" {'selected=\"selected\"' if solo == soloId else ''}>{solo}</option>\n" + html
 
-  dom.inner("Files", html)
+  dom.inner("Solos", html)
+
+  html = ""
+
+  for troop in TROOPS:
+    html = f"<option value=\"{troop}\" >{troop}</option>\n" + html
+
+  dom.inner("Troops", html)
 
 
 def atk(dom):
@@ -104,7 +114,7 @@ def atk(dom):
   displayMacros(dom)
   kitLabel =  ucuq.getKitLabel(infos)
 
-  updateFileList(dom, next((key for key, val in KIT_LABELS.items() if val == kitLabel), None))
+  updateFileList(dom, next((key for key, val in SOLOS.items() if val == kitLabel), None))
 
 
 def atkTest():
@@ -397,22 +407,32 @@ def atkHideContents(dom):
   
 def atkSaveToFile(dom):
 
-  with open(f"Macros/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json", "w") as file: 
-    file.write(json.dumps(macros, indent=2)) # type: ignore
+  global show
+
+  show["Macros"] = macros
+
+  with open(f"Shows/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json", "w") as file:
+
+    file.write(json.dumps(show, indent=2)) # type: ignore
   
   updateFileList(dom)
 
 def atkLoadFromFile(dom):
-  global macros
+  global show, macros
 
-  with open(f"Macros/{dom.getValue('Files')}.json", "r") as file:
-    macros = json.load(file)
+  with open(f"Shows/{dom.getValue('Shows')}.json", "r") as file:
+    show = json.load(file)
 
+
+  macros = show["Macros"]
 
   if "_" in macros:
     dom.setValue("Content", macros["_"]["Content"])
 
   displayMacros(dom)
+
+  if "Cohort" in show:
+    createCohortServos(show["Cohort"])
 
 
 def handleSetupsKits(setups, kitHardware):
@@ -420,7 +440,7 @@ def handleSetupsKits(setups, kitHardware):
     hardware = setups[setup]["Hardware"]
 
     if hardware[HARDWARE_MODE_SUBKEY] == M_KIT:
-      setups[setup]["Hardware"] = ucuq.getHardware(kitHardware, hardware["Key"], hardware["Index"])
+      setups[setup]["Hardware"] = ucuq.getHardware(kitHardware, hardware["Key"], index = hardware["Index"])
 
   return setups
 
@@ -464,16 +484,16 @@ def createServo(deviceId, device, kitHardware, key):
     servos[key+setup] = ucuq.Servo(pwm, ucuq.Servo.Specs(specs["U16Min"], specs["U16Max"], specs["Range"]), tweak = ucuq.Servo.Tweak(tweak["Angle"],tweak["Offset"], tweak["Invert"]))
 
 
-def createCohortServos():
+def createCohortServos(cohort):
   global servos
-  
-  targets = {
-    "C": "Charlie",
-    "E": "Echo"
-  }
 
-  for key in targets:
-    createServo(targets[key], ucuq.Device(id=targets[key]), key)
+  servos = {}
+  
+  for key in cohort:
+    device = ucuq.Device(id=cohort[key])
+    infos = ucuq.getInfos(device)
+
+    createServo(cohort[key], device, ucuq.getKitHardware(ucuq.getKitLabel(infos)), key)
 
 with open('Body.html', 'r') as file:
   BODY = file.read()
