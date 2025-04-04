@@ -93,6 +93,26 @@ def normalize(string):
     return string.ljust(16)
   else:
     return string[-16:]
+  
+
+def isWokwi():
+  return ringCount == 16
+
+
+COUNTER_LEDS = {
+  True: ((7,9),(6,10),(5,11),(3,13),(2,14),(1,15)),
+  False: ((5,),(6,),(7,),(1,),(2,),(3,))
+}
+
+
+FIXED_LEDS = {
+  True: (0,4,8,12),
+  False: (4,0)
+}
+
+
+def patchRingIndex(index):
+  return ( index + ringOffset ) % ringCount
 
 
 def showHanged(dom, errors):
@@ -100,13 +120,20 @@ def showHanged(dom, errors):
     cOLED.draw(HANGED_MAN_PATTERNS[errors-1],48, ox=47).show()
     dom.removeClass(HANGED_MAN[errors-1], "hidden")
 
-  for l in range(errors):
-    cRing.setValue(l + int(l > 2), [30, 0, 0])
+  for e in range(errors+1):
+    for l in COUNTER_LEDS[isWokwi()][e-1]:
+      cRing.setValue(patchRingIndex(l), [ringLimiter, 0, 0])
 
-  for l in range(errors, 7):
-    cRing.setValue(l + int(l > 2), [0, 30, 0])
+  for e in range(errors+1, 7):
+    for l in COUNTER_LEDS[isWokwi()][e-1]:
+      cRing.setValue(patchRingIndex(l), [0, ringLimiter, 0])
 
-  cRing.setValue(7, [5 *  errors, 0, 5 * ( 6 - errors )]).setValue(3, [5 *  errors, 0, 5 * ( 6 - errors )]).write()
+  print(ringLimiter * errors // 6, ringLimiter * ( 6 - errors ) // 6)
+
+  for l in FIXED_LEDS[isWokwi()]:
+    cRing.setValue(patchRingIndex(l), [ringLimiter * errors // 6, 0, ringLimiter * ( 6 - errors ) // 6])
+
+  cRing.write()
 
 
 def showWord(dom, secretWord, correctGuesses):
@@ -131,20 +158,21 @@ def reset(core, dom):
   cOLED.fill(0).draw(START_PATTERN, 48, ox=47).show()
   showWord(dom, core.secretWord, core.correctGuesses)
   cLCD.moveTo(0,1).putString(normalize(""))
-  cRing.fill([0,0,0]).setValue(0,[0,30,0]).write()
+#  cRing.fill([0,0,0]).setValue(0,[0,ringLimiter,0]).write()
   showHanged(dom, 0)
 
 
 def atk(core, dom):
-  global cLCD, cOLED, cRing, cBuzzer
+  global cLCD, cOLED, cRing, cBuzzer, ringCount, ringOffset, ringLimiter
 
   infos = ucuq.ATKConnect(dom, "")
   hardware = ucuq.getKitHardware(infos)
 
   cLCD = ucuq.HD44780_I2C(ucuq.I2C(*ucuq.getHardware(hardware, "LCD", ["SDA", "SCL", "Soft"])), 2, 16)
   cOLED =  ucuq.SSD1306_I2C(128, 64, ucuq.I2C(*ucuq.getHardware(hardware, "OLED", ["SDA", "SCL", "Soft"])))
-  cRing = ucuq.WS2812(*ucuq.getHardware(hardware, "Ring", ["Pin", "Count"]))
   cBuzzer = ucuq.PWM(*ucuq.getHardware(hardware, "Buzzer", ["Pin"]), freq=50, u16 = 0).setNS(0)
+  pin, ringCount, ringOffset, ringLimiter = ucuq.getHardware(hardware, "Ring", ["Pin", "Count", "Offset", "Limiter"])
+  cRing = ucuq.WS2812(pin, ringCount)
 
   reset(core,dom)
 
@@ -170,8 +198,8 @@ def atkSubmit(core, dom, id):
       cLCD.moveTo(0,1).putString("Congratulations!")
       cOLED.draw(HAPPY_PATTERN, 16, mul=4, ox=32).show()
       for _ in range(3):
-        for l in range(8):
-          cRing.setValue(l,[randint(0,10),randint(0,10),randint(0,10)]).write()
+        for l in range(ringCount):
+          cRing.setValue(patchRingIndex(l),[randint(0,ringLimiter // 3),randint(0,ringLimiter // 3),randint(0,ringLimiter // 3)]).write()
           ucuq.sleep(0.075)
       dom.alert("You've won! Congratulations!")
       reset(core, dom)
@@ -187,6 +215,7 @@ def atkSubmit(core, dom, id):
   
   if core.errors >= len(HANGED_MAN):
     dom.removeClass("Face", "hidden")
+    showWord(dom, core.secretWord, core.secretWord)
     dom.alert("\nYou've run out of guesses. \nYou had " + str(core.errors) +
       " errors and " + str(len(core.correctGuesses)) + " correct guesses. " +
       "\n\nThe word was '" + core.secretWord + "'.")

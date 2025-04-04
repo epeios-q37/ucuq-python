@@ -434,7 +434,7 @@ ATK_BODY_ = """
 <div style="display: flex; justify-content: center;" class="ucuq">
   <h3>'BRACES' (<em>BRACES</em>)</h3>
 </div>
-<div id="ucuq_body">
+<div id="ucuq_body" style="display: flex; justify-content: center;">
 </div>
 """.replace("{", "{{").replace("}", "}}").replace("BRACES", "{}")
 
@@ -606,9 +606,9 @@ def ATKConnect(dom, body, demo = False, *, device = None):
 
   dom.inner("ucuq_body", body)
 
-  time.sleep(0.5)
-
   time.sleep(1.5)
+
+  dom.inner("", body)
 
   return infos
 

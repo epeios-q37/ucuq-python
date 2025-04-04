@@ -395,5 +395,81 @@
         }
       }
     }
+  },
+  "Delta": {
+    "Servos": {
+      "l": {
+        "Hardware": {
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 0
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": -115,
+          "Invert": false
+        }
+      },
+      "L": {
+        "Hardware": {
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 1
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
+        }
+      },
+      "R": {
+        "Hardware": {
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 2
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": -55,
+          "Invert": false
+        }
+      },
+      "r": {
+        "Hardware": {
+          "Mode": "Kit",
+          "Key": "Servo",
+          "Index": 3
+        },
+        "Specs": {
+          "Freq": 50,
+          "U16Min": 1639,
+          "U16Max": 8192,
+          "Range": 180
+        },
+        "Tweak": {
+          "Angle": 90,
+          "Offset": 0,
+          "Invert": false
+        }
+      }
+    }
   }
 }

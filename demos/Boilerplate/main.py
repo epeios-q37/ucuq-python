@@ -7,6 +7,7 @@ import ucuq, atlastk
 
 def atk(dom):
   ucuq.ATKConnect(dom, BODY)
+  ucuq.GPIO(2).low()
   
 def atkSwitch(dom, id):
   ucuq.GPIO(2).high(dom.getValue(id) == "true")
