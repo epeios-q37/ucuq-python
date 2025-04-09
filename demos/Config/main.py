@@ -149,7 +149,7 @@ def atkSave(dom):
 
   if proxy:
     config[K_PROXY] = proxy
-  else:
+  elif K_PROXY in config:
     del config[K_PROXY]
 
   save(config)
