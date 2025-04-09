@@ -7,9 +7,9 @@ import os, sys, json
 
 import atlastk
 
-
 def isDev():
-  return "Q37_EPEIOS" in os.environ
+  return atlastk.isDev()
+
 
 CONFIG_FILE = ( "/home/csimon/q37/epeios/other/BPY/Apps/UCUq/" if isDev() else "../" ) + "ucuq.json"
 

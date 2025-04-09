@@ -340,7 +340,7 @@ def atkSave(dom):
     elif not name in macros or dom.getValue("Ask") == "true" or dom.confirm(f"Overwrite existing macro of name '{name}'?"):
       macros[name] = {"Description": dom.getValue("Description"), "Content": content}
 
-      with open(f"Macros/Latest.json", "w") as file: 
+      with open(f"Shows/Latest.json", "w") as file: 
         file.write(json.dumps(macros, indent=2)) # type: ignore
 
     displayMacros(dom)
@@ -411,8 +411,7 @@ def atkSaveToFile(dom):
 
   show["Macros"] = macros
 
-  with open(f"Shows/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json", "w") as file:
-
+  with open(f"{'/home/csimon/H/hg/epeios/other/BPY/Apps/UCUq/Servos/' if atlastk.isDev() else ''}Shows/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json", "w") as file:
     file.write(json.dumps(show, indent=2)) # type: ignore
   
   updateFileList(dom)

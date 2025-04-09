@@ -248,6 +248,9 @@ class Device_:
     if token == None and id == None:
       token, id = handlingConfig_(token, id)
 
+    if not token:
+      token = getConfigToken_()
+
     self.token = token if token else ALL_DEVICES_VTOKEN
     self.id = id if id else ""
 
@@ -373,6 +376,13 @@ def handlingConfig_(token, id):
     id = device[K_DEVICE_ID]
 
   return token, id
+
+
+def getConfigToken_():
+    try:
+      return CONFIG_[K_DEVICE][K_DEVICE_TOKEN]
+    except:
+      return ""
 
 
 def setDevice(id = None, *, device = None, token = None):
