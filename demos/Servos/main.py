@@ -86,7 +86,7 @@ SOLOS = {
   "Dog": "Freenove/Dog/ESP32"
 }
 
-TROOPS = ["Cats"]
+COHORTS = ["Cats"]
 
 def updateFileList(dom, soloId = ""):
   html = ""
@@ -98,10 +98,10 @@ def updateFileList(dom, soloId = ""):
 
   html = ""
 
-  for troop in TROOPS:
-    html = f"<option value=\"{troop}\" >{troop}</option>\n" + html
+  for cohort in COHORTS:
+    html = f"<option value=\"{cohort}\" >{cohort}</option>\n" + html
 
-  dom.inner("Troops", html)
+  dom.inner("Cohorts", html)
 
 
 def atk(dom):

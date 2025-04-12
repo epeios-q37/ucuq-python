@@ -33,8 +33,9 @@ def save(config):
 def delete():
     os.remove(CONFIG_FILE)
 
-DEFAULT_HOST = "ucuq.q37.info"
-DEFAULT_PORT = "53800"
+DEFAULT_PROXY_HOST = "ucuq.q37.info"
+DEFAULT_PROXY_PORT = "53843"
+DEFAULT_PROXY_SSL = True
 
 # Keys
 K_DEVICE = "Device"
@@ -43,11 +44,13 @@ K_DEVICE_ID = "Id"
 K_PROXY = "Proxy"
 K_PROXY_HOST = "Host"
 K_PROXY_PORT = "Port"
+K_PROXY_SSL = "SSL"
 
 # Widgets
 W_PROXY = "Proxy"
 W_HOST = "Host"
 W_PORT = "Port"
+W_SSL = "SSL"
 W_TOKEN = "Token"
 W_ID = "Id"
 W_OUTPUT = "Output"
@@ -76,17 +79,20 @@ def setAsHidden(dom, id):
 def updateUI(dom):
   values = {}
 
-  proxy = getConfigProxy()
+  proxyConfig = getConfigProxy()
 
-  if K_PROXY_HOST in proxy:
-    values[W_HOST] = proxy[K_PROXY_HOST]
+  if K_PROXY_HOST in proxyConfig:
+    values[W_HOST] = proxyConfig[K_PROXY_HOST]
   else:
     setAsHidden(dom, W_HOST)
 
-  if K_PROXY_PORT in proxy:
-    values[W_PORT] = proxy[K_PROXY_PORT]
+  if K_PROXY_PORT in proxyConfig:
+    values[W_PORT] = proxyConfig[K_PROXY_PORT]
   else:
     setAsHidden(dom, W_PORT)
+
+  if K_PROXY_SSL in proxyConfig:
+    values[W_SSL] = "true" if proxyConfig[K_PROXY_SSL] else "false"
 
   device = getConfigDevice()
 
@@ -111,7 +117,9 @@ def atk(dom):
 
 
 def atkSave(dom):
-  host, port, token, id = (value.strip() for value in (dom.getValues([W_HOST, W_PORT, W_TOKEN, W_ID])).values())
+  host, port, ssl, token, id = (value.strip() for value in (dom.getValues([W_HOST, W_PORT, W_SSL, W_TOKEN, W_ID])).values())
+
+  ssl = True if ssl == "true" else False
 
   device = getConfigDevice()
 
@@ -126,29 +134,31 @@ def atkSave(dom):
   if id:
     device[K_DEVICE_ID] = id
 
-  proxy = getConfigProxy()
+  proxyConfig = getConfigProxy()
 
   if not host and not port:
-    proxy = None
+    proxyConfig = None
   elif host:
     if not port:
       dom.alert("Please enter a port!")
       dom.focus(W_PORT)
       return
-
-    proxy[K_PROXY_HOST] = host
   elif port:
     if not host:
       dom.alert("Please enter a host!")
       dom.focus(W_HOST)
       return
+
+  proxyConfig[K_PROXY_HOST] = host
+  proxyConfig[K_PROXY_PORT] = port
+  proxyConfig[K_PROXY_SSL] = ssl
     
   config = getConfig()
 
   config[K_DEVICE] = device
 
-  if proxy:
-    config[K_PROXY] = proxy
+  if proxyConfig:
+    config[K_PROXY] = proxyConfig
   elif K_PROXY in config:
     del config[K_PROXY]
 
