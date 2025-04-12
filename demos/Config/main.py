@@ -149,9 +149,9 @@ def atkSave(dom):
       dom.focus(W_HOST)
       return
 
-  proxyConfig[K_PROXY_HOST] = host
-  proxyConfig[K_PROXY_PORT] = port
-  proxyConfig[K_PROXY_SSL] = ssl
+    proxyConfig[K_PROXY_HOST] = host
+    proxyConfig[K_PROXY_PORT] = port
+    proxyConfig[K_PROXY_SSL] = ssl
     
   config = getConfig()
 
