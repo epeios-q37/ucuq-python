@@ -3,7 +3,7 @@
 # COMPUTER GENERATED FILE #
 ###########################
 
-import datetime, http, os, json, socket, ssl, sys, threading, time, urllib
+import datetime, http, os, json, socket, ssl, sys, threading, urllib
 from inspect import getframeinfo, stack
 
 
@@ -36,13 +36,13 @@ try:
 except:
   UCUQ_PORT_ = int(UCUQ_DEFAULT_PORT_)
 
-UCUQ_SSL_ = CONFIG_["Proxy"]["SSL"] if CONFIG_ and "Proxy" in CONFIG_ and "SSL" in CONFIG_["Proxy"] and CONFIG_["Proxy"]["SSL"] else UCUQ_DEFAULT_SSL_
+UCUQ_SSL_ = CONFIG_["Proxy"]["SSL"] if CONFIG_ and "Proxy" in CONFIG_ and "SSL" in CONFIG_["Proxy"] and CONFIG_["Proxy"]["SSL"] != None else UCUQ_DEFAULT_SSL_
 
 
 PROTOCOL_LABEL_ = "c37cc83e-079f-448a-9541-5c63ce00d960"
 PROTOCOL_VERSION_ = "0"
 
-_writeLock = threading.Lock()
+writeLock_ = threading.Lock()
 
 # Request
 R_EXECUTE_ = "Execute_1"
@@ -146,7 +146,7 @@ def init_():
 
 
 def handshake_(socket):
-  with _writeLock:
+  with writeLock_:
     writeString_(socket, PROTOCOL_LABEL_)
     writeString_(socket, PROTOCOL_VERSION_)
     writeString_(socket, "Remote")
@@ -165,8 +165,9 @@ def handshake_(socket):
 
 
 def ignition_(socket, token, deviceId, errorAsException):
-  writeString_(socket, token)
-  writeString_(socket, deviceId)
+  with writeLock_:
+    writeString_(socket, token)
+    writeString_(socket, deviceId)
 
   error = readString_(socket)
 
@@ -263,14 +264,16 @@ class Device_:
     return self.proxy.socket != None
   
   def upload_(self, modules):
-    writeString_(self.proxy.socket, R_UPLOAD_)
-    writeStrings_(self.proxy.socket, modules)
+    with writeLock_:
+      writeString_(self.proxy.socket, R_UPLOAD_)
+      writeStrings_(self.proxy.socket, modules)
 
   def execute_(self, script, expression = ""):
     if self.proxy.socket:
-      writeString_(self.proxy.socket, R_EXECUTE_)
-      writeString_(self.proxy.socket, script)
-      writeString_(self.proxy.socket, expression)
+      with writeLock_:
+        writeString_(self.proxy.socket, R_EXECUTE_)
+        writeString_(self.proxy.socket, script)
+        writeString_(self.proxy.socket, expression)
 
       if expression:
         self.proxy.resultBegin.wait()
@@ -329,7 +332,7 @@ def getKits():
 ###############
 
 
-import zlib, base64
+import zlib, base64, time
 
 ITEMS_ = "i_"
 
@@ -448,7 +451,7 @@ ATK_BODY_ = """
 <div style="display: flex; justify-content: center;" class="ucuq">
   <h3>'BRACES' (<em>BRACES</em>)</h3>
 </div>
-<div id="ucuq_body" style="display: flex; justify-content: center;">
+<div id="ucuq_body" style_="display: flex; justify-content: center;">
 </div>
 """.replace("{", "{{").replace("}", "}}").replace("BRACES", "{}")
 
@@ -458,11 +461,14 @@ CB_MANUAL = 1
 
 defaultCommitBehavior_ = CB_AUTO
 
-def testCommit_(behavior = None):
-  if behavior == None:
-    behavior = defaultCommitBehavior_
+def testCommit_(commit, behavior = None):
+  if commit == None:
+    if behavior == None:
+      behavior = defaultCommitBehavior_
 
-  return behavior == CB_AUTO
+    return behavior == CB_AUTO
+  else:
+    return commit
 
 class Device(Device_):
   def __init__(self, *, id = None, token = None, callback = None):
@@ -476,8 +482,8 @@ class Device(Device_):
   def __del__(self):
     self.commit()
 
-  def testCommit_(self):
-    return testCommit_(self.commitBehavior)
+  def testCommit_(self, commit):
+    return testCommit_(commit, self.commitBehavior)
 
   def addModule(self, module):
     if not module in self.pendingModules_ and not module in self.handledModules_:
@@ -490,10 +496,10 @@ class Device(Device_):
       for module in modules:
         self.addModule(module)
 
-  def addCommand(self, command, commit = False):
+  def addCommand(self, command, commit = None):
     self.commands_.append(command)
 
-    if commit or self.testCommit_():
+    if self.testCommit_(commit):
       self.commit()
 
     return self
@@ -599,7 +605,42 @@ def ATKConnect(dom, body, demo = False, *, device = None):
   if not KITS_:
     raise Exception("No kits defined!")
 
-  dom.inner("", "<h3>Connecting…</h3>")
+  dom.inner("", """
+  <style>
+    .ucuq-connection {
+      display: inline-block;
+      /* Pour éviter les retours à la ligne */
+      white-space: nowrap;
+      /* Pour que le texte ne déborde pas */
+      overflow: hidden;
+      /* Animation en continu */
+      animation: ucuq-connection 1s linear infinite;
+      /* Masque linéaire horizontal */
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 50%, transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0%, black 50%, transparent 100%);
+      -webkit-mask-size: 200% 100%;
+      mask-size: 200% 100%;
+      -webkit-mask-position: 0% 0%;
+      mask-position: 0% 0%;
+    }
+
+    @keyframes ucuq-connection {
+      100% {
+        -webkit-mask-position: 0% 0%;
+        mask-position: 0% 0%;
+      }
+      50% {
+        -webkit-mask-position: 100% 0%;
+        mask-position: 100% 0%;
+      }
+      0% {
+        -webkit-mask-position: 200% 0%;
+        mask-position: 200% 0%;
+      }
+    }
+  </style>
+  <h2 class="ucuq-connection">💻…📡…🛰️…<span style='display: inline-block;transform: scaleX(-1)';>📡</span>…🤖</h2>
+  """)
   
   if device or CONFIG_:
     device = getDevice_(device)
@@ -611,7 +652,13 @@ def ATKConnect(dom, body, demo = False, *, device = None):
     raise SystemExit("Unable to connect to a device!")
   
   setDevice(device = device)
+
+  start = time.monotonic()
   infos = getInfos(device)
+
+  if ( elapsed := time.monotonic() - start ) < 3:
+    print("Elapsed: ", elapsed)
+    time.sleep(3 - elapsed)
 
   deviceId =  getDeviceId(infos)
 
@@ -647,8 +694,8 @@ def getDevice():
   return device_
 
 
-def addCommand(command, /,device = None):
-  getDevice_(device).addCommand(command)
+def addCommand(command, commit = False, /,device = None):
+  getDevice_(device).addCommand(command, commit)
 
 
 # does absolutely nothing whichever method is called.
@@ -723,10 +770,8 @@ class GPIO(Core_):
 
     super().init("GPIO-1", f"GPIO({self.pin})", device)
 
-
   def high(self, value = True):
     self.addMethods(f"high({value})")
-
 
   def low(self):
     self.high(False)
@@ -826,7 +871,6 @@ class HT16K33(Core_):
   
   def rect(self, x0, y0, x1, y1, ink = True):
     return self.addMethods(f"rect({x0}, {y0}, {x1}, {y1}, ink={1 if ink else 0})")  
-
 
   def show(self):
     return self.addMethods(f"render()")
@@ -1138,6 +1182,9 @@ class SSD1306(Core_):
     if width % 4:
       raise Exception("'width' must be a multiple of 4!")
     return self.addMethods(f"draw('{pattern}',{width},{ox},{oy},{mul})")
+
+  def rotate(self, rotate = True):
+    return self.addMethods(f"rotate({rotate})")
 
 
 class SSD1306_I2C(SSD1306):
