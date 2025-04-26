@@ -657,7 +657,6 @@ def ATKConnect(dom, body, demo = False, *, device = None):
   infos = getInfos(device)
 
   if ( elapsed := time.monotonic() - start ) < 3:
-    print("Elapsed: ", elapsed)
     time.sleep(3 - elapsed)
 
   deviceId =  getDeviceId(infos)

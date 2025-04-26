@@ -15,7 +15,7 @@ from random import randint
 L_FR = 0
 L_EN = 1
 
-LANGUAGE = L_FR
+LANGUAGE = None
 
 L10N = (
   (
@@ -45,7 +45,7 @@ L10N = (
   )
 )
 
-getL10N = lambda m, *args, **kwargs: L10N[m][LANGUAGE].format(*args, **kwargs)
+getL10N = lambda m, *args, **kwargs: L10N[m][language].format(*args, **kwargs)
 
 DICTIONARY_EN = (
   "apple", "banana", "grape", "orange", "mango", "peach", "pineapple", "strawberry",
@@ -87,7 +87,10 @@ DICTIONARY_FR = (
   "tendance", "terrain", "concert", "tourisme", "travail", "tribunal", "colifichet"
 )
 
-DICTIONARY = DICTIONARY_FR if LANGUAGE == L_FR else DICTIONARY_EN
+DICTIONNARIES = (
+  DICTIONARY_FR,
+  DICTIONARY_EN
+)
 
 HANGED_MAN = "Head Body LeftArm RightArm LeftLeg RightLeg".split()
 
@@ -118,8 +121,8 @@ class Core:
     self.reset()
 
 
-def randword():
-  return DICTIONARY[randint(0, len(DICTIONARY)-1)]
+def randword(dictionnary):
+  return dictionnary[randint(0, len(dictionnary)-1)]
 
 
 def normalize(string):
@@ -185,7 +188,7 @@ def showWord(dom, secretWord, correctGuesses):
 def reset(core, dom):
   core.reset()
   dom.inner("", BODY.format(restart=getL10N(5)))
-  core.secretWord = randword()
+  core.secretWord = randword(DICTIONNARIES[language])
   print(core.secretWord)
   cOLED.fill(0).draw(START_PATTERN, 48, ox=47).show()
   showWord(dom, core.secretWord, core.correctGuesses)
@@ -195,7 +198,9 @@ def reset(core, dom):
 
 
 def atk(core, dom):
-  global cLCD, cOLED, cRing, cBuzzer, ringCount, ringOffset, ringLimiter
+  global cLCD, cOLED, cRing, cBuzzer, ringCount, ringOffset, ringLimiter, language
+
+  language = LANGUAGE if LANGUAGE != None else L_FR if dom.language.startswith("fr") else L_EN
 
   infos = ucuq.ATKConnect(dom, "")
   hardware = ucuq.getKitHardware(infos)

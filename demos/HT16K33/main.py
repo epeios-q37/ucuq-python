@@ -177,9 +177,12 @@ def atkMirror(dom, id):
 
   if  (dom.getValue(id)) == "true":
     if ( dom.confirm("Please do not confirm unless you know exactly what you are doing!") ):
-      device = ucuq.Device(id="Golf")
+      device = ucuq.Device(id="Alpha")
 
       mirror = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(*ucuq.getHardware(ucuq.getKitHardware(ucuq.getInfos(device)), "OLED", ["SDA", "SCL", "Soft"]), device=device ))
+      mirror.fill(1).show()
+      ucuq.time.sleep(0.5)
+      mirror.fill(0).show()
     else:
       dom.setValue(id, "false")
   else:
