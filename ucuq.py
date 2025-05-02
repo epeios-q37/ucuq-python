@@ -56,6 +56,7 @@ A_ERROR_ = 2
 A_PUZZLED_ = 3
 A_DISCONNECTED_ = 4
 
+useUCUqDemoDevices = lambda: False
 
 def recv_(socket, size):
   buffer = bytes()
@@ -599,7 +600,7 @@ def getInfos(device):
   return infos
 
 
-def ATKConnect(dom, body, demo = False, *, device = None):
+def ATKConnect(dom, body, *, device = None):
   getKits()
   
   if not KITS_:
@@ -644,7 +645,7 @@ def ATKConnect(dom, body, demo = False, *, device = None):
   
   if device or CONFIG_:
     device = getDevice_(device)
-  elif demo:
+  elif useUCUqDemoDevices():
     device = getDemoDevice()
 
   if not device:
@@ -682,8 +683,11 @@ def getDevice_(device = None, *, id = None, token = None):
     if token or id:
       device_ = Device(id = id, token = token)
     elif device_ == None:
-      device_ = Device()
-      device_.connect()
+      if useUCUqDemoDevices():
+        device_ = getDemoDevice()
+      else:
+        device_ = Device()
+        device_.connect()
     return device_
   else:
     return device

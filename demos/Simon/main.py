@@ -26,7 +26,7 @@ L10N = (
     'Bienvenue au jeu', 
     'Welcome to'
   ), (
-    "'Simon' !",
+    "'Simon'!",
     "Simon's game!"
   ), (
     'Reproduire la',
@@ -35,14 +35,14 @@ L10N = (
     'sequence...',
     'sequence...'
   ), (
-    'Bravo !',
+    'Bravo!',
     'Well done!'
   ), ( # 5
-    "Perdu ! 'New'",
-    'Game over! Click'
+    "Perdu! 'Nouveau'",
+    "Game over! 'New'"
   ), (
-    'pour rejouer !',
-    'New to restart!'
+    'pour rejouer!',
+    'to play again!'
   ),
   (
     "Nouveau",
