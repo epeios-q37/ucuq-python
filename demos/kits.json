@@ -2,8 +2,8 @@
 {
     "_comment": "ESP32-C3",
     "brand": "q37.info",
-    "model": "DIY",
-    "variant": "Displays",
+    "model": "Displays",
+    "variant": "SSD1306",
     "hardware": {
       "OnBoardLed": [ 8, false ],
       "Ring": [ {
@@ -38,8 +38,8 @@
   }, {
     "_comment": "ESP8266",
     "brand": "q37.info",
-    "model": "DIY",
-    "variant": "Servos",
+    "model": "Servos",
+    "variant": "180°",
     "hardware": {
       "OnBoardLed": [ 8, false ],
       "Servo": [
@@ -139,36 +139,36 @@
       "OnBoardLed": [ 2, true ],
       "Ring": [
         {
-          "Pin": 15,
-          "Count": 16,
-          "Offset": 9,
+          "Pin": 20,
+          "Count": 8,
+          "Offset": 0,
           "Limiter": 255
         }
       ],
       "OLED": [
         {
           "Soft": false,
-          "SDA": 21,
-          "SCL": 22
+          "SDA": 8,
+          "SCL": 9
         }
       ],
       "LCD": [
         {
           "Soft": true,
-          "SDA": 25,
-          "SCL": 26
+          "SDA": 6,
+          "SCL": 7
         }
       ],
       "Buzzer": [
         {
           "Mode": "Straight",
-          "Pin": 32
+          "Pin": 5
         }
       ],
       "Servo": [
         {
           "Mode": "Straight",
-          "Pin": 33
+          "Pin": 21
         }
       ]
     }

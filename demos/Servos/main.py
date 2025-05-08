@@ -82,7 +82,7 @@ def displayMacros(dom):
 
 SOLOS = {
   "Bipedal": "Freenove/Bipedal/RPiPico(2)W",
-  "DIY": "q37.info/DIY/Servos",
+  "Q37": "q37.info/Servos/180°",
   "Dog": "Freenove/Dog/ESP32"
 }
 

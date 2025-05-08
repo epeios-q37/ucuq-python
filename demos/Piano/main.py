@@ -46,8 +46,7 @@ def atk(dom):
 
 def atkPlay(dom,id):
   freq = int(baseFreq*math.pow(math.pow(2,1.0/12), int(id)))
-  pwm.setU16(int(ratio*65535))
-  pwm.setFreq(freq)
+  pwm.setFreq(freq).setU16(int(ratio*65535))
   ucuq.sleep(.5)
   pwm.setU16(0)
 
