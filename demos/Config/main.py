@@ -7,6 +7,61 @@ import os, sys, json
 
 import atlastk
 
+# Languages
+L_FR = 0
+L_EN = 1
+
+ATK_L10N = (
+  (
+    "en",
+    "fr"
+  ),
+  (
+    "Show/hide proxy settings",
+    "Afficher/Masquer réglages proxy"
+  ),
+  (
+    "Save",
+    "Sauver"
+  ),
+  (
+    "Delete",
+    "Effacer"
+  ),
+  (
+    "Enter <em>Token</em> and/or <em>Id</em>",
+    "Saisir <em>Token</em> et/ou <em>Id</em>."
+  ),
+  (
+    "Please enter a value for <em>Token</em>!",
+    "Veuillez saisir une value pour <em>Token</em> !"
+  ),
+  (
+    "Please enter a value for <em>Port</em>!",
+    "Veuillez saisir une value pour <em>Port</em> !"
+  ),
+  (
+    "Please enter a value for <em>Host</em>!",
+    "Veuillez saisir une value pour <em>Host</em> !"
+  ),
+  (
+    "Config file updated!",
+    "Fichier de configuration mis à jour !"
+  ),
+  (
+    "Deleting config file is not possible in development mode!",
+    "Effacer le fichier de configuration n'est pas possible en mode développement !"
+  ),
+  (
+    "Are you sure you want to delete config file?",
+    "Êtes-vous sûr de vouloir supprimer le fichier de configuration ?"
+  ),
+  (
+    "Config file deleted!",
+    "Fichier de configuration supprimé !"
+  )
+)
+
 def isDev():
   return atlastk.isDev()
 
@@ -109,7 +164,7 @@ def updateUI(dom):
 
 
 def atk(dom):
-  dom.inner("", BODY)
+  dom.inner("", BODY.format(**dom.getL10n(proxy=1, save=2, delete=3, hint=4)))
 
   dom.disableElement(S_HIDE_PROXY)
 
@@ -124,7 +179,7 @@ def atkSave(dom):
   device = getConfigDevice()
 
   if not token and K_DEVICE_TOKEN not in device:
-    dom.alert("Please enter a token value!")
+    dom.alert(dom.getL10n(5))
     dom.focus(W_TOKEN)
     return
 
@@ -141,12 +196,12 @@ def atkSave(dom):
   else:
     if host:
       if not port:
-        dom.alert("Please enter a port!")
+        dom.alert(dom.getL10N(6))
         dom.focus(W_PORT)
         return
     elif port:
       if not host:
-        dom.alert("Please enter a host!")
+        dom.alert(dom.getL10n(7))
         dom.focus(W_HOST)
         return
 
@@ -165,18 +220,18 @@ def atkSave(dom):
 
   save(config)
 
-  dom.setValue(W_OUTPUT, "Config file updated!")
+  dom.setValue(W_OUTPUT, dom.getL10n(8))
 
 
 def atkDelete(dom):
   if isDev():
-    dom.alert("You are in development environment, deleting config file is not possible!")
-  elif dom.confirm("Are you sure you want to delete config file ?"):
+    dom.alert(dom.getL10n(9))
+  elif dom.confirm(dom.getL10n(10)):
     delete()
     dom.removeAttribute(W_TOKEN, "placeholder")
     dom.setValues({W_TOKEN: "", "Id": ""})
     dom.focus(W_TOKEN)
-    dom.setValue(W_OUTPUT, "Config deleted!")
+    dom.setValue(W_OUTPUT, dom.getL10n(11))
 
 
 with open('Body.html', 'r') as file:

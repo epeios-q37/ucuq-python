@@ -15,11 +15,11 @@ setuptools.setup(
     keywords="microcontrolers, RPi Pico, ESP32, ESP8266, Wi-Fi, micropython, I2C, SPI, GPIO, PWM",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://zelbinium.q37.info/en/ucuq/",
+    url="https://github.com/epeios-q37/ucuq-python",
     packages=setuptools.find_packages(),
     classifiers=[
       "Development Status :: 5 - Production/Stable",
-      "Environment :: Other Environment"
+      "Environment :: Other Environment",
       "Intended Audience :: Developers",
       "Intended Audience :: Education",
       "Intended Audience :: Other Audience",
