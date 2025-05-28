@@ -1,7 +1,7 @@
 # Pypi setup file for UCUq.
 import setuptools
 
-version = "0.1.0"
+version = "0.1.1"
 
 with open("ucuq/README.md", "r") as fh:
     long_description = fh.read()
