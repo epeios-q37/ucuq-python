@@ -133,6 +133,8 @@ def exit_(message=None):
 
 def init_():
   print("Connection to UCUq server…", end="", flush=True)
+  print(UCUQ_PORT_, UCUQ_HOST_, UCUQ_SSL_ )
+
 
   try:
     s = socket.create_connection((UCUQ_HOST_, UCUQ_PORT_))
@@ -421,7 +423,7 @@ def ucuqStructToDict(obj):
 
 def ucuqGetInfos():
   infos = {{
-    "{IK_DEVICE_ID_}": getIdentificationId(CONFIG_IDENTIFICATION),
+    "{IK_DEVICE_ID_}": getIdentificationId(CONFIG_IDENTIFICATION if 'CONFIG_IDENTIFICATION' in globals() else _CONFIG_IDENTIFICATION),
     "{IK_DEVICE_UNAME_}": ucuqStructToDict(uos.uname())
   }}
 
@@ -491,7 +493,7 @@ class Device(Device_):
     self.commands_ = ["""
 def sleepWait(start, us):
   elapsed = time.ticks_us() - start
-  
+                      
   if elapsed < us:
     time.sleep_us(int(us - elapsed))
 """]
@@ -1285,7 +1287,7 @@ class SH1106_I2C(SH1106):
       raise Exception("addr can not be given without i2c!")
       
   def init(self, width, height, i2c, /, external_vcc = False, addr = None, extra = True):
-    super().init(("SH1106-1", "SH1106_I2C-1"), f"SH1106_I2C({width}, {height}, {i2c.getObject()}, addr={addr}, external_vcc={external_vcc})", i2c.getDevice(), extra)
+    super().init(("SH1106-1", "SH1106_I2C-1"), f"SH1106_I2C({width}, {height}, {i2c.getObject()}, addr={addr}, external_vcc={external_vcc})", i2c.getDevice(), extra).flash(extra if not isinstance(extra, bool) else 0.15)
 
 
 
