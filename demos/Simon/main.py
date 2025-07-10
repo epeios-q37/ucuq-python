@@ -250,6 +250,7 @@ def restart(dom):
 
   seq = random.choice("RGBY")
   hw.restart(seq, lambda m: dom.getL10n(m))
+  dom.setValue("Length", str(len(seq)))
 
 
 def atk(dom):
@@ -296,6 +297,8 @@ def atkClick(dom, id):
       userSeq = ""
       seq += random.choice("RGBY")
       hw.new(seq, lambda m: dom.getL10n(m))
+      ucuq.time.sleep(1.5)
+      dom.setValue("Length", str(len(seq)))
     else:
       hw.lcd.backlightOff()
   else:
