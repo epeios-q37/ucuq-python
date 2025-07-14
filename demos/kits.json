@@ -28,6 +28,15 @@
           "Pin": 13
         }
       ]
+    },
+    "features": {
+      "OLED": [
+        {
+          "Driver": "SH1106",
+          "Width": 128,
+          "Height": 64
+        }
+      ]
     }
   }, {
     "_comment": "ESP32-C3",
@@ -62,6 +71,15 @@
         {
           "Mode": "Straight",
           "Pin": 5
+        }
+      ]
+    },
+    "features": {
+      "OLED": [
+        {
+          "Driver": "SSD1306",
+          "Width": 128,
+          "Height": 64
         }
       ]
     }
@@ -164,6 +182,7 @@
       ]
     }
   }, {
+    "_comment": "Wokwi simulator",
     "brand": "q37.info",
     "model": "Wokwi",
     "variant": "Displays",
@@ -201,6 +220,15 @@
         {
           "Mode": "Straight",
           "Pin": 21
+        }
+      ]
+    },
+        "features": {
+      "OLED": [
+        {
+          "Driver": "SSD1306",
+          "Width": 128,
+          "Height": 64
         }
       ]
     }
