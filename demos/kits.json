@@ -47,10 +47,7 @@
     "hardware": {
       "OnBoardLed": [ 8, false ],
       "Ring": [ {
-          "Pin": 20,
-          "Count": 8,
-          "Offset": 2,
-          "Limiter": 30
+          "Pin": 20
         }
       ],
       "OLED": [
@@ -80,6 +77,19 @@
           "Driver": "SSD1306",
           "Width": 128,
           "Height": 64
+        }
+      ],
+      "LCD": [
+        {
+          "Width": 16,
+          "Height": 2
+        }
+      ],
+      "Ring": [
+        {
+          "Count": 8,
+          "Offset": 2,
+          "Limiter": 30
         }
       ]
     }
@@ -190,10 +200,7 @@
       "OnBoardLed": [ 2, true ],
       "Ring": [
         {
-          "Pin": 20,
-          "Count": 8,
-          "Offset": 0,
-          "Limiter": 255
+          "Pin": 20
         }
       ],
       "OLED": [
@@ -223,12 +230,25 @@
         }
       ]
     },
-        "features": {
+    "features": {
       "OLED": [
         {
           "Driver": "SSD1306",
           "Width": 128,
           "Height": 64
+        }
+      ],
+      "LCD": [
+        {
+          "Width": 16,
+          "Height": 2
+        }
+      ],
+      "Ring": [
+        {
+          "Count": 8,
+          "Offset": 0,
+          "Limiter": 255
         }
       ]
     }
