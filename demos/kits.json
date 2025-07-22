@@ -119,7 +119,8 @@
           "Pin": 15
         }
       ]
-    }
+    },
+    "features": {}
   }, {
     "_comment": "Freenove Bipedal (RPI Pico W)",
     "devices": [ "Charlie", "Echo" ],
