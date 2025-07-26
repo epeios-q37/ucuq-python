@@ -39,6 +39,91 @@
       ]
     }
   }, {
+    "_comment": "2.8 TFT ILI9431",
+    "devices": [ "Kilo" ],
+    "brand": "q37.info",
+    "model": "Display",
+    "variant": "TFT",
+    "hardware": {
+      "OnBoardLed": [ 16, false ],
+      "LED": [
+        {
+          "Pin": 4
+        },
+        {
+          "Pin": 16
+        },
+        {
+          "Pin": 17
+        }
+      ],
+      "TFT": [
+        {
+          "Soft": false,
+          "Id": 1,
+          "SCK": 14,
+          "MOSI": 13,
+          "MISO": 12,
+          "DC": 2,
+          "CS": 15,
+          "RST": 15,
+          "Baudrate": 60000000,
+          "Backlight": 21
+        }
+      ]
+    },
+    "features": {
+      "LED": [
+        {
+          "Color": "Red"
+        },
+        {
+          "Color": "Green"
+        },
+        {
+          "Color": "Blue"
+        }
+      ],
+      "TFT": [
+        {
+          "Width": 240,
+          "Height": 320,
+          "Rotation": 90
+        }
+      ]
+    }
+  }, {
+    "_comment": "2.8 TFT ILI9431 on Wokwi",
+    "brand": "Wokwi",
+    "model": "DIY",
+    "variant": "TFT",
+    "hardware": {
+      "OnBoardLed": [ 2, true ],
+      "TFT": [
+        {
+          "Soft": false,
+          "Id": 2,
+          "SCK": 18,
+          "MOSI": 23,
+          "MISO": 19,
+          "DC": 33,
+          "CS": 5,
+          "RST": 32,
+          "Baudrate": 32000000,
+          "Backlight": 2
+        }
+      ]
+    },
+    "features": {
+      "TFT": [
+        {
+          "Width": 240,
+          "Height": 320,
+          "Rotation": 180
+        }
+      ]
+    }
+  }, {
     "_comment": "ESP32-C3",
     "devices": [ "Alpha", "Golf", "India" ],
     "brand": "q37.info",
