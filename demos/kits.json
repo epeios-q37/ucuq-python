@@ -213,7 +213,7 @@
     "model": "Bipedal",
     "variant": "RPiPico(2)W",
     "hardware": {
-      "OnBoardLed": [ 2, false ],
+      "OnBoardLed": [ "LED", false ],
       "SmartRGB": [
         {
           "Pin": 16,
