@@ -1,30 +1,14 @@
-# MicroController Remote Server (runs on the µcontroller)
+__version__ = "2025-08-21"
 
 import asyncio, sys, uos, time, network, json, binascii, io
 from machine import Pin
+
+import settings
 
 _WLAN = "" # Connects to one of the WLAN defined in 'ucuq.json'.
 # _WLAN = "<name>" # Connects to the WLAN <name> as defined in 'ucuq.json'.
 # _WLAN = ("<ssid>","<key>") # Connects to WLAN <ssid> using <key>.
 
-with open("ucuq.json", "r") as config:
-  CONFIG = json.load(config)
-
-_K_IDENTIFICATION = "Identification"
-_K_ONBOARD_LED = "OnBoardLed"
-_K_PROXY = "Proxy"
-_K_WIFI_POWER = "WifiPower"
-
-_DEFAULT_ONBOARD_LED = (None, True)
-_DEFAULT_PROXY = ("ucuq.q37.info", 53800, False)
-_DEFAULT_WIFI_POWER = [None]
-
-getConfig = lambda key: CONFIG[key] if key in CONFIG else None
-
-_CONFIG_IDENTIFICATION = CONFIG[_K_IDENTIFICATION]
-_CONFIG_ONBOARD_LED = getConfig(_K_ONBOARD_LED)
-_CONFIG_PROXY = getConfig(_K_PROXY)
-_CONFIG_WIFI_POWER = getConfig(_K_WIFI_POWER)
 
 _WLAN_FALLBACK = "q37"
 
@@ -65,21 +49,6 @@ def getMacAddress():
   return binascii.hexlify(network.WLAN(network.STA_IF).config('mac')).decode()
 
 
-# NOTA: also used in the script for 'getInfos()'… 
-def getIdentificationId(identification):
-  if isinstance(identification[1], str):
-    return identification[1]
-  else:
-    mac = getMacAddress()
-
-    if mac in identification[1]:
-      return identification[1][mac]
-    else:
-      raise Exception("Unable to get an id for this device.")
-
-    
-_WLANS = CONFIG["WLAN"]
-
 def wlanIsShortcut(wlan):
   if isinstance(wlan, str):
     return True
@@ -89,7 +58,7 @@ def wlanIsShortcut(wlan):
     raise TypeError("'wlan' parameter can only be a string (shortcut), a list or a tuple of 2 strings (SSID and key)")
 
 
-def wlanGetKnownStation(wifi, callback):
+def wlanGetKnownStation(wifi, wlans, callback):
   known = ""
   tries = 0
 
@@ -103,10 +72,10 @@ def wlanGetKnownStation(wifi, callback):
     for station in wifi.scan():
       if known:
         break
-      for name in _WLANS:
+      for name in wlans:
         if known:
           break
-        if station[0].decode("utf-8") == _WLANS[name][0]:
+        if station[0].decode("utf-8") == wlans[name][0]:
           known = name
 
     tries += 1
@@ -124,34 +93,35 @@ def wlanDisconnect():
     pass
 
 
-def wlanConnect(wlan, callback):
+def wlanConnect(wlan, wifiPower, wlans, callback):
   global wifi
 
   wifi = network.WLAN(network.STA_IF)
 
+  if wifi.active():
+    wifi.active(False)
+    wifi = network.WLAN(network.STA_IF)
+
   if not wifi.isconnected():
     if wlanIsShortcut(wlan):
       if wlan == "":
-        wlan = _WLANS[wlanGetKnownStation(wifi, callback)]
+        wlan = wlans[wlanGetKnownStation(wifi, wlans, callback)]
       else:
         try:
-          wlan = _WLANS[wlan]
+          wlan = wlans[wlan]
         except KeyError:
-          wlan = _WLANS[_WLAN_FALLBACK]
+          wlan = wlans[_WLAN_FALLBACK]
 
     tries = 0
 
     wifi.active(True)
 
-    id = getIdentificationId(_CONFIG_IDENTIFICATION)
-
     # An ESP32-C3 supermini does not connect to WiFi with default WiFi power when plugged in a breadboard.
     # See https://www.reddit.com/r/arduino/comments/1dl6atc/esp32c3_boards_cant_connect_to_wifi_when_plugged/
     # RPi Pico does not support a float.
-    wifiPowerParams = getParams(_CONFIG_WIFI_POWER, getIdentificationId(_CONFIG_IDENTIFICATION), _DEFAULT_WIFI_POWER)
-
-    if wifiPowerParams[0]:
-      wifi.config(txpower=wifiPowerParams[0])
+  
+    if wifiPower:
+      wifi.config(txpower=wifiPower)
 
     wifi.connect(wlan[0], wlan[1])
 
@@ -246,10 +216,8 @@ def exit(message=None):
   sys.exit(-1)
 
 
-async def init_async(callback):
+async def initAsync(proxyParam, callback):
   global proxy
-
-  proxyParam = getParams(_CONFIG_PROXY, getIdentificationId(_CONFIG_IDENTIFICATION), getParams(_CONFIG_PROXY, "_default", _DEFAULT_PROXY))
 
   callback(_S_UCUQ, 0)
 
@@ -260,8 +228,8 @@ async def init_async(callback):
     return False
   
   
-def init(callback):
-    return asyncio.run(init_async(callback))  
+def init(proxyParam, callback):
+    return asyncio.run(initAsync(proxyParam, callback))  
 
 
 def getDeviceLabel():
@@ -289,9 +257,9 @@ def handshake():
     print(notification)
 
 
-def ignition():
-  blockingWriteString(_CONFIG_IDENTIFICATION[0])
-  blockingWriteString(getIdentificationId(_CONFIG_IDENTIFICATION))
+def ignition(deviceId):
+  blockingWriteString(settings.getIdentificationToken())
+  blockingWriteString(deviceId)
 
   error = blockingReadString()
 
@@ -299,7 +267,7 @@ def ignition():
     sys.exit(error)
 
 
-async def serve():
+async def serve(callback):
   while True:
     request = await readUInt()
 
@@ -308,9 +276,9 @@ async def serve():
       expression = await readString()
       returned = ""
       try:
-        exec(script)
+        result = callback(script, expression)
         if expression:
-          returned = json.dumps(eval(expression))
+          returned = json.dumps(result)
       except Exception as exception:
         with io.StringIO() as stream:
           sys.print_exception(exception, stream)
@@ -327,7 +295,7 @@ async def serve():
       await writeString("")  # For future use
 
 
-def defaultCallback(status, tries):
+def defaultStatusCallback(status, tries):
   if tries == 0:
     if status != _S_FAILURE:
       print("\r                                                                                \r", end="")
@@ -375,7 +343,7 @@ def ledCallback(status, tries, pin, onValue):
     handleLed(pin, True, onValue)
   elif status == _S_SUCCESS:
     ledBlink(pin, 3, onValue)
-  return defaultCallback(status, tries) and not ( ( status == _S_UCUQ) and ( tries > 5 ) )
+  return defaultStatusCallback(status, tries) and not ( ( status == _S_UCUQ) and ( tries > 5 ) )
 
 
 def completeParam(params, default):
@@ -399,53 +367,58 @@ def getParams(paramSet, device, default):
     return default
 
 
-def getCallback():
-  onBoardLed = getParams(_CONFIG_ONBOARD_LED, getIdentificationId(_CONFIG_IDENTIFICATION), getParams(_CONFIG_ONBOARD_LED, "_default", _DEFAULT_ONBOARD_LED))
+def getStatusCallback(deviceId):
+  onBoardLed = settings.getOnboardLed(deviceId)
 
-  if onBoardLed[0]:
+  if onBoardLed[0] is not None:
     return lambda status, tries: ledCallback(status, tries, onBoardLed[0], onBoardLed[1])
     
-  return defaultCallback
+  return defaultStatusCallback
 
 
-def main():
-  callback = getCallback()
+def main(callback):
+  if not settings.available():
+    return
 
-  if not wlanConnect(_WLAN, callback):
-    callback(_S_FAILURE, 0)
+  deviceId = settings.getDeviceId()
+  statusCallback = getStatusCallback(deviceId)
+  wifiPower = settings.getWifiPower(deviceId)
+  proxy = settings.getProxy(deviceId)
+  wlan = _WLAN
+  wlans = settings.getWLANS()
+
+  if not wlanConnect(wlan, wifiPower, wlans, statusCallback):
+    statusCallback(_S_FAILURE, 0)
     exit()
 
-  if not init(callback):
+  if not init(proxy, statusCallback):
     if ( _WLAN != "" ):
-      callback(_S_FAILURE, 0)
+      statusCallback(_S_FAILURE, 0)
       exit()
 
     wlanDisconnect()
 
-    if not wlanConnect(_WLAN, callback):
-      callback(_S_FAILURE, 0)
+    if not wlanConnect(wlan, wifiPower, wlans, statusCallback):
+      statusCallback(_S_FAILURE, 0)
       exit()
 
-    if not init(callback):
-      callback(_S_FAILURE, 0)
+    if not init(proxy, statusCallback):
+      statusCallback(_S_FAILURE, 0)
       exit()
 
-  callback(_S_SUCCESS, 0)
+  statusCallback(_S_SUCCESS, 0)
 
   handshake()
 
-  ignition()
+  ignition(deviceId)
 
   try:
-    asyncio.run(serve())
+    asyncio.run(serve(callback))
   except Exception as exception:
     try:
       writeUInt(_A_DISCONNECTED_)
     except:
       pass
 
-    getCallback()(_S_DECONNECTION, 0)
+    getStatusCallback(deviceId)(_S_DECONNECTION, 0)
     raise exception
-
-
-main()

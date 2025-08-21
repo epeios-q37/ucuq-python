@@ -5,8 +5,55 @@ sys.path.extend(("../..","../../atlastk.zip"))
 
 import ucuq, atlastk, binascii
 
-ht16k33 = None
-mirror = None
+hw = None
+
+class OLED:
+  def __init__(self, oled):
+    self.oled = oled
+
+  def plot(self, x, y):
+    # return self.oled.rect(x*8, y*8, 8, 8, 1)
+    return self.oled.ellipse(x*8+3, y*8+3, 3, 3, 1)
+  
+  def show(self):
+    return self.oled.show()
+  
+  def clear(self):
+    return self.oled.fill(0).show()
+
+  def rect(self, x0, y0, x1, y1):
+    for x in range(x0, x1+1):
+      for y in range(y0, y1+1):
+        self.plot(x,y)
+  
+  def draw(self, motif):
+    self.oled.fill(0)
+    for pos in range(len(motif)):
+      char = int(motif[pos],16) 
+      y = pos >> 2
+      px = ( pos << 2 ) % 16
+      for offset in range(4):
+        if char & ( 1 << ( 3 - offset) ):
+          self.plot(px + offset, y)
+
+    return self
+  
+  def setBrightness(self, b):
+    return self
+  
+  def setBlinkRate(self, b):
+    return self
+  
+
+class HW(ucuq.Multi):
+  def __init__(self, infos, device=None):
+    self.device, matrix, oled = ucuq.getBits(infos, ucuq.B_MATRIX, ucuq.B_OLED, device=device)
+
+    super().__init__(matrix)
+    super().add(OLED(oled))
+
+    self.clear().show().setBrightness(0).setBlinkRate(0)
+
 
 pattern = "0" * 32
 
@@ -15,29 +62,29 @@ TEST_DELAY = 0.05
 def test():
   for y in range(8):
     for x in range(16):
-      ht16k33.plot(x,y)
-    ht16k33.show()
+      hw.plot(x,y)
+    hw.show()
     ucuq.sleep(TEST_DELAY)
-    ht16k33.clear()
+    hw.clear()
 
   for x in range(16):
     for y in range(8):
-      ht16k33.plot(x,y)
-    ht16k33.show()
+      hw.plot(x,y)
+    hw.show()
     ucuq.sleep(TEST_DELAY)
-    ht16k33.clear()
+    hw.clear()
 
-  ht16k33.rect(0, 0, 15, 7).show()
+  hw.rect(0, 0, 15, 7).show()
 
   for b in range(0, 16):
-    ht16k33.setBrightness(b)
+    hw.setBrightness(b)
     ucuq.sleep(TEST_DELAY)
 
   for b in range(15, -1, -1):
-    ht16k33.setBrightness(b)
+    hw.setBrightness(b)
     ucuq.sleep(TEST_DELAY)
 
-  ht16k33.clear().show()
+#  matrix.clear().show()
 
 
 def drawOnGUI(dom, motif = pattern):
@@ -78,11 +125,8 @@ def setHexa(dom, motif = pattern):
 
 
 def drawOnMatrix(motif = pattern):
-  if ht16k33:
-    ht16k33.draw(motif).show()
-
-    if mirror:
-      mirror.fill(0).draw(motif, 16, mul=8).show()
+  if hw:
+    hw.draw(motif).show()
 
 
 def draw(dom, motif = pattern):
@@ -97,23 +141,11 @@ def draw(dom, motif = pattern):
   setHexa(dom, motif)
 
 
-def turnOnMain(hardware):
-  global ht16k33
-
-  if not hardware:
-    raise Exception("Kit has no ht16k33 component!")
-  
-  ht16k33 = ucuq.HT16K33(ucuq.I2C(*ucuq.getHardware(hardware, "Matrix", ["SDA", "SCL", "Soft"])))
-  ht16k33.clear().show()
-  ht16k33.setBrightness(0)
-  ht16k33.setBlinkRate(0)
-
-
 def atk(dom):
-  infos = ucuq.ATKConnect(dom, BODY)
+  global hw
 
-  if not ht16k33:
-    turnOnMain(ucuq.getKitHardware(infos))
+  if not hw:
+    hw = ucuq.Multi(HW(ucuq.ATKConnect(dom, BODY)))
 
   draw(dom, "")
 
@@ -161,11 +193,11 @@ def atkAll(dom):
 
 
 def atkBrightness(dom, id):
-  ht16k33.setBrightness(int(dom.getValue(id)))
+  hw.setBrightness(int(dom.getValue(id)))
 
 
 def atkBlinkRate(dom, id):
-  ht16k33.setBlinkRate(float(dom.getValue(id)))
+  hw.setBlinkRate(float(dom.getValue(id)))
 
 
 def atkDraw(dom, id):
@@ -173,17 +205,13 @@ def atkDraw(dom, id):
 
 
 def atkMirror(dom, id):
-  global mirror
-
   if  (dom.getValue(id)) == "true":
     if ( dom.confirm("Please do not confirm unless you know exactly what you are doing!") ):
       device = ucuq.Device(id="Hotel")
 
-      mirror = ucuq.SH1106_I2C(128, 64, ucuq.I2C(*ucuq.getHardware(ucuq.getKitHardware(ucuq.getInfos(device)), "OLED", ["SDA", "SCL", "Soft"]), device=device ))
+      hw.add(OLED(ucuq.SH1106_I2C(128, 64, ucuq.I2C(*ucuq.getHardware(ucuq.getKitHardware(ucuq.getInfos(device)), "OLED", ["SDA", "SCL", "Soft"]), device=device ))))
     else:
       dom.setValue(id, "false")
-  else:
-    mirror = None
   
 MATRICES = (
   "0FF0300C4002866186614002300C0FF",
@@ -208,6 +236,8 @@ MATRICES = (
   "00003ffc40025ffa2ff417e8081007e",
 )
 
+def UCUqXDevice(dom, device):
+  hw.add(HW(ucuq.getInfos(device), device))
 
 with open('Body.html', 'r') as file:
   BODY = file.read()

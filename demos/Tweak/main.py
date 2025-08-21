@@ -218,8 +218,8 @@ def setWidth(width):
   return getParams()
 
 
-def updateHardware_(dom, hardware):
-  servo = ucuq.getHardware(hardware, "Servo")
+def updateHardware_(dom, infos):
+  servo = ucuq.getHardware(infos, "Servo")
 
   if servo:
     updateSettingsUIFollowingMode_(dom, servo[W_MODE])
@@ -230,7 +230,7 @@ def updateHardware_(dom, hardware):
 def atk(dom):
   infos = ucuq.ATKConnect(dom, BODY)
 
-  updateHardware_(dom, ucuq.getKitHardware(infos))
+  updateHardware_(dom,infos)
 
   ucuq.addCommand(MC_INIT)
   

@@ -109,7 +109,7 @@ def atk(dom):
 
   # createCohortServos()
 
-  createServo(ucuq.getDeviceId(infos), ucuq.getDevice(), ucuq.getKitHardware(infos), "")
+  createServo(ucuq.getDeviceId(infos), ucuq.getDevice(), infos, "")
 
   displayMacros(dom)
   kitLabel =  ucuq.getKitLabel(infos)
@@ -434,33 +434,33 @@ def atkLoadFromFile(dom):
     createCohortServos(show["Cohort"])
 
 
-def handleSetupsKits(setups, kitHardware):
+def handleSetupsKits(setups, infos):
   for setup in setups:
     hardware = setups[setup]["Hardware"]
 
     if hardware[HARDWARE_MODE_SUBKEY] == M_KIT:
-      setups[setup]["Hardware"] = ucuq.getHardware(kitHardware, hardware["Key"], index = hardware["Index"])
+      setups[setup]["Hardware"] = ucuq.getHardware(infos, hardware["Key"], index = hardware["Index"])
 
   return setups
 
 
-def getServosSetups(target, kitHardware):
+def getServosSetups(target, infos):
 
   with open("servos.json", "r") as file:
     config = json.load(file)[target]
 
 
 
-  return handleSetupsKits(config["Servos"], kitHardware)
+  return handleSetupsKits(config["Servos"], infos)
 
 
-def createServo(deviceId, device, kitHardware, key):
+def createServo(deviceId, device, infos, key):
   global servos
 
   if key:
     key += '.'
 
-  setups = getServosSetups(deviceId, kitHardware)
+  setups = getServosSetups(deviceId, infos)
 
   for setup in setups:
     servo = setups[setup]
@@ -492,7 +492,7 @@ def createCohortServos(cohort):
     device = ucuq.Device(id=cohort[key])
     infos = ucuq.getInfos(device)
 
-    createServo(cohort[key], device, ucuq.getKitHardware(ucuq.getKitLabel(infos)), key)
+    createServo(cohort[key], device, infos, key)
 
 with open('Body.html', 'r') as file:
   BODY = file.read()

@@ -44,6 +44,8 @@ PROTOCOL_VERSION_ = "0"
 
 writeLock_ = threading.Lock()
 
+Lock_ = threading.Lock
+
 # Request
 R_EXECUTE_ = "Execute_1"
 R_UPLOAD_ = "Upload_1"
@@ -195,7 +197,7 @@ class Error(Exception):
 
 
 def commit(expression=""):
-  return getDevice_().commit(expression)
+  return getDevice().commit(expression)
 
 
 def displayExitMessage_(Message):
@@ -327,7 +329,7 @@ def getKits():
 ###############
 
 
-import zlib, base64, time
+import zlib, base64, time, atlastk, binascii
 
 ITEMS_ = "i_"
 
@@ -346,7 +348,7 @@ device_ = None
 
 unpack_ = lambda data : zlib.decompress(base64.b64decode(data)).decode()
 
-def getObjectIndice_():
+def getObjectIndice():
   global objectCounter_
 
   objectCounter_ += 1
@@ -400,13 +402,14 @@ def setDevice(id = None, *, device = None, token = None):
       raise Exception("'device' can not be given together with 'id' or 'token'!")
     device_ = device
   else:    
-    getDevice_(id = id, token = token)
+    getDevice(id = id, token = token)
 
 
 # Infos keys and subkeys
 IK_DEVICE_ID_ = "DeviceId"
 IK_DEVICE_UNAME_ = "uname"
 IK_HARDWARE = "Hardware"
+IK_FEATURES = "Features"
 IK_KIT_LABEL = "KitLabel"
 
 # Kits keys
@@ -421,12 +424,12 @@ def ucuqStructToDict(obj):
 
 def ucuqGetInfos():
   infos = {{
-    "{IK_DEVICE_ID_}": getIdentificationId(CONFIG_IDENTIFICATION if 'CONFIG_IDENTIFICATION' in globals() else _CONFIG_IDENTIFICATION),
-    "{IK_DEVICE_UNAME_}": ucuqStructToDict(uos.uname())
+    "{IK_DEVICE_ID_}": ucuq.settings.getDeviceId(),
+    "{IK_DEVICE_UNAME_}": ucuqStructToDict(__import__('uos').uname())
   }}
 
-  if "{IK_KIT_LABEL}" in CONFIG:
-    infos["{IK_KIT_LABEL}"] = CONFIG["{IK_KIT_LABEL}"]
+  if kit := ucuq.settings.getKitLabel():
+    infos["{IK_KIT_LABEL}"] = kit
 
   return infos
 """
@@ -457,6 +460,74 @@ ATK_BODY_ = """
 """.replace("{", "{{").replace("}", "}}").replace("BRACES", "{}")
 
 
+ATK_XDEVICE_ = """
+<dialog id="ucuq_xdevice" style="width: min-content;">
+  <fieldset>
+    <legend>Device</legend>
+    <label style="display: flex; justify-content: space-between; margin: 5px;">
+      <span>Token:&nbsp;</span>
+      <input id="ucuq_xdevice_token">
+    </label>
+    <label style="display: flex; justify-content: space-between; margin: 5px;">
+      <span>Id:&nbsp;</span>
+      <input id="ucuq_xdevice_id">
+    </label>
+  </fieldset>
+  <div style="display: flex; justify-content: space-around; margin: 5px;">
+    <button xdh:onevent="ucuq_xdevice_ok"/>{}</button>
+    <button xdh:onevent="ucuq_xdevice_cancel">{}</button>
+  </div>
+  <fieldset>{}</fieldset>
+</dialog>
+"""
+
+UCUQ_XDEVICE_ACTION_ = "UCUqXDevice"
+
+def handleXDevice_(dom, response):
+  dom.executeVoid("document.getElementById('ucuq_xdevice').close();")
+
+
+  if response:
+    atlastk.getUserGlobals()["UCUqXDevice"](dom, Device(id = dom.getValue("ucuq_xdevice_id"), token = dom.getValue("ucuq_xdevice_token")))
+
+  dom.executeVoid("element = document.getElementById('ucuq_xdevice').remove();")
+
+
+def getDOM_(dom1, dom2):
+  if isinstance(dom1, atlastk.DOM):
+    return dom1
+  else:
+    return dom2
+  
+UCUQ_XDEVICE_I10N = (
+  ("OK", "Cancel", "Click on ‘Cancel’ unless you know exactly what you're doing!"),
+  ("OK", "Annuler", "Cliquez sur 'Annuler' à moins que vous ne sachiez exactement ce que vous faites !")
+)
+
+
+def handleXDeviceRetrieving_(dom1, dom2):
+  dom = getDOM_(dom1, dom2)
+
+  language = dom.language
+
+  i10n = UCUQ_XDEVICE_I10N[1 if ( language[:2].upper() if len(language) >= 2 else '' ) == 'FR' else 0]
+
+  dom.end("", ATK_XDEVICE_.format(*i10n))
+
+  atlastk.setCallback("ucuq_xdevice_ok", handleXDeviceOK_)
+  atlastk.setCallback("ucuq_xdevice_cancel", handleXDeviceCancel_)
+
+  dom.executeVoid(f"document.getElementById('ucuq_xdevice').showModal();")
+
+
+def handleXDeviceOK_(dom1, dom2):
+  handleXDevice_(getDOM_(dom1, dom2), True)
+
+
+def handleXDeviceCancel_(dom1, dom2):
+  handleXDevice_(getDOM_(dom1, dom2), False)
+
+
 CB_AUTO = 0
 CB_MANUAL = 1
 
@@ -472,16 +543,88 @@ def testCommit_(commit, behavior = None):
     return commit
 
   
-def sleepStart():
-  return getDevice_().sleepStart()
+def sleepStart(id = None):
+  return getDevice().sleepStart(id)
 
 
 def sleepWait(id, secs):
-  return getDevice_().sleepWait(id, secs)
+  return getDevice().sleepWait(id, secs)
 
   
 def sleep(secs):
-  return getDevice_().sleep(secs)
+  return getDevice().sleep(secs)
+
+
+patchKeys_ = lambda keys: keys if keys else []
+
+B_LCD = "LCD"
+B_OLED = "OLED"
+B_BUZZER = "Buzzer"
+B_LOUDSPEAKER = "Loudspeaker"
+B_SMART_RGB = "SmartRGB"
+B_MATRIX = "Matrix"
+B_TFT = "TFT"
+
+class Auto:
+  def __new__(cls, bit, infos, item, hardwareKeys, featuresKeys, **kwargs):
+    hardware = getKitHardware_(infos)
+    features = getKitFeatures_(infos)
+
+    if not hasHardware_(hardware, item) and not hasFeatures_(features, item):
+      return Nothing()
+
+    hardwareKeys = patchKeys_(hardwareKeys)
+    featuresKeys = patchKeys_(featuresKeys)
+
+    return bit(*getDescItems_(features, item, featuresKeys), *getDescItems_(hardware, item, hardwareKeys), **kwargs)
+
+
+def getBits(infos, *bitLabels, device=None):
+  bits = [getDevice(device)]
+
+  for label in bitLabels:
+    match label:
+      case "LCD":
+        bits.append(Auto(HD44780_I2C, infos, label, None, ["Width", "Height"], i2c=Auto(I2C, infos, label, ["SDA", "SCL", "Soft"], None, device=device)))
+      case "OLED":
+        bits.append(Auto(OLED_I2C, infos, label, None, ["Driver", "Width", "Height"], i2c=Auto(I2C, infos, label, ["SDA", "SCL", "Soft"], None, device=device)))
+      case "Buzzer" | "Loudspeaker":
+        bits.append(Auto(PWM, infos, label, ["Pin"], None, device=device))
+      case "SmartRGB": 
+        bits.append(Auto(WS2812, infos, label, ["Pin"], ["Count"], device=device))
+      case "Matrix":
+        bits.append(Auto(HT16K33, infos, label, None, None, i2c=Auto(I2C, infos, "Matrix", ["SDA", "SCL", "Soft"], None, device=device)))
+      case "TFT":
+        bits.append(Auto(ILI9341, infos, label, ["DC", "CS", "RST"], ["Width", "Height", "Rotation"], spi=Auto(SPI, infos, label, ["Id", "SCK", "MOSI", "MISO", "Baudrate"], None, device=device))) 
+      case _:
+        raise Exception(f"Unknown bit label: {label}")
+      
+  return bits
+
+
+class Multi:
+  def __init__(self, object):
+    self.objects = [object]
+
+  def add(self, objet):
+    self.objects.append(objet)
+
+  def __getattr__(self, methodName):
+    def wrapper(*args, **kwargs):
+      for obj in self.objects:
+        getattr(obj, methodName)(*args, **kwargs)
+      return self
+    return wrapper
+  
+  def __getitem__(self, index):
+    if index < len(self.objects):
+      return self.objects[index]
+    else:
+      raise IndexError("Index out of range for Multi object.")
+  
+  # Workaround for Brython (https://github.com/brython-dev/brython/issues/2590)
+  def __bool__(self):
+    return True
 
 
 class Device(Device_):
@@ -509,12 +652,16 @@ def sleepWait(start, us):
     if not module in self.pendingModules_ and not module in self.handledModules_:
       self.pendingModules_.append(module)
 
+    return self
+
   def addModules(self, modules):
     if isinstance( modules, str):
       self.addModule(modules)
     else:
       for module in modules:
         self.addModule(module)
+
+    return self
 
   def addCommand(self, command, commit = None):
     self.commands_.append(command)
@@ -524,8 +671,9 @@ def sleepWait(start, us):
 
     return self
 
-  def sleepStart(self):
-    id = getObjectIndice_()
+  def sleepStart(self, id = None):
+    if id == None:
+      id = getObjectIndice()
 
     self.addCommand(f"{getObject_(id)} = time.ticks_us()")
 
@@ -539,7 +687,7 @@ def sleepWait(start, us):
 
 
 def getBaseInfos_(device = None):
-  device = getDevice_(device)
+  device = getDevice(device)
 
   device.addCommand(INFO_SCRIPT_, False)
 
@@ -587,32 +735,67 @@ def getKit_(infosOrLabel):
   return getKitFromLabel_(infosOrLabel)
 
 
-def getKitHardware(infosOrLabel):
+def getKitDesc_(infosOrLabel, descLabel):
   kit = getKit_(infosOrLabel)
 
   if kit:
-    return kit["hardware"]
+    return kit[descLabel]
   else:
     return "Undefined"
   
+def getKitHardware_(infosOrLabel):
+  return getKitDesc_(infosOrLabel, "hardware")
 
-getHardware_ = lambda hardware, key, index: hardware[key][index] if key in hardware and index < len(hardware[key]) else None
+
+def getKitFeatures_(infosOrLabel):
+  return getKitDesc_(infosOrLabel, "features")
+  
+
+subGetDescItems_ = lambda desc, key, index: desc[key][index] if key in desc and index < len(desc[key]) else None
 
 
-def getHardware(kitHardware, stringOrList, keys=None, *, index = 0):
+def getDescItems_(kitDesc, stringOrList, keys=None, *, index = 0):
   if type(stringOrList) == str:
-    hardware = getHardware_(kitHardware, stringOrList, index)
+    items = subGetDescItems_(kitDesc, stringOrList, index)
   else:
     for key in stringOrList:
-      if hardware := getHardware_(kitHardware, key, index):
+      if items := subGetDescItems_(kitDesc, key, index):
         break
 
-  if hardware and keys:
-    result = (hardware[key] for key in keys)
+  if items and ( keys or keys == [] ):
+    result = tuple(items[keys] if type(keys) == str else (items[key] for key in keys))
+  elif items:
+    result = items
   else:
-    result = hardware
+    result = (())
 
   return result
+
+
+def hasHardware_(kitHardware, item):
+  return bool(getDescItems_(kitHardware, item))
+  
+
+def hasFeatures_(kitFeatures, item):
+  return bool(getDescItems_(kitFeatures, item))
+
+
+def getFeatures(infosOrLabel, item, keys=None, *, index = 0):
+  kitFeatures = getKitFeatures_(infosOrLabel)
+
+  if not kitFeatures:
+    return ()
+
+  return getDescItems_(kitFeatures, item, keys, index = index)
+
+  
+def getHardware(infosOrLabel, item, keys=None, *, index = 0):
+  kitHardware = getKitHardware_(infosOrLabel)
+
+  if not kitHardware:
+    return ()
+
+  return getDescItems_(kitHardware, item, keys, index = index)
   
 
 def getDeviceId(infos):
@@ -624,7 +807,8 @@ def getInfos(device):
 
   if not IK_KIT_LABEL in infos:
     infos[IK_KIT_LABEL] = getKitLabelFromDeviceId_(getDeviceId(infos))
-  infos[IK_HARDWARE] = getKitHardware(infos)
+  infos[IK_HARDWARE] = getKitDesc_(infos, "hardware")
+  infos[IK_FEATURES] = getKitDesc_(infos, "features")
 
   return infos
 
@@ -673,7 +857,7 @@ def ATKConnect(dom, body, *, device = None):
   """)
   
   if device or CONFIG_:
-    device = getDevice_(device)
+    device = getDevice(device)
   elif useUCUqDemoDevices():
     device = getDemoDevice()
 
@@ -699,10 +883,12 @@ def ATKConnect(dom, body, *, device = None):
 
   dom.inner("", body)
 
+  atlastk.setCallback(UCUQ_XDEVICE_ACTION_, handleXDeviceRetrieving_)
+
   return infos
 
 
-def getDevice_(device = None, *, id = None, token = None):
+def getDevice(device = None, *, id = None, token = None):
   if device and ( token or id ):
     displayExitMessage_("'device' can not be given together with 'token' or 'id'!")
 
@@ -722,12 +908,8 @@ def getDevice_(device = None, *, id = None, token = None):
     return device
 
 
-def getDevice():
-  return device_
-
-
-def addCommand(command, commit = False, /,device = None):
-  getDevice_(device).addCommand(command, commit)
+def addCommand(command, commit=False, /,device=None):
+  getDevice(device).addCommand(command, commit)
 
 
 # does absolutely nothing whichever method is called but returns 'self'.
@@ -740,7 +922,7 @@ class Nothing:
   
   def __bool__(self):
     return False
-  
+
 
 # does absolutely nothing whichever method is called.
 # 'if Nothing()' returns 'False'.
@@ -773,13 +955,13 @@ class Core_:
     return self.id
   
   def init(self, modules, instanciation, device, extra, *, before=""):
-    self.id = getObjectIndice_()
+    self.id = getObjectIndice()
 
     if self.device_:
         if device and device != self.device_:
           raise Exception("'device' already given!")
     else:
-      self.device_ = getDevice_(device)
+      self.device_ = getDevice(device)
 
     if modules:
       self.device_.addModules(modules)
@@ -797,7 +979,6 @@ class Core_:
 
   def addCommand(self, command):
     self.device_.addCommand(command)
-
     return self
 
   def addMethods(self, methods):
@@ -805,6 +986,17 @@ class Core_:
 
   def callMethod(self, method):
     return self.device_.commit(f"{self.getObject()}.{method}")
+  
+  def sleepStart(self, id = None):
+    return self.device_.sleepStart(id)
+  
+  def sleepWait(self, id, secs):
+    self.device_.sleepWait(id, secs)
+    return self
+  
+  def sleep(self, secs):
+    self.device_.sleep(secs)
+    return self
                          
 
 class GPIO(Core_):
@@ -825,45 +1017,6 @@ class GPIO(Core_):
   def low(self):
     return self.high(False)
 
-
-class WS2812(Core_):
-  def __init__(self, pin = None, n = None, device = None, extra = True):
-    super().__init__(device)
-
-    if (pin == None) != (n == None):
-      raise Exception("Both or none of 'pin'/'n' must be given")
-
-    if pin != None:
-      self.init(pin, n, device = device, extra = extra)
-
-  def init(self, pin, n, device = None, extra = True):
-    super().init("WS2812-1", f"neopixel.NeoPixel(machine.Pin({pin}), {n})", device, extra).flash(extra)
-
-  def len(self):
-    return int(self.callMethod("__len__()"))
-               
-
-  def setValue(self, index, val):
-    self.addMethods(f"__setitem__({index}, {json.dumps(val)})")
-
-    return self
-                       
-  def getValue(self, index):
-    return self.callMethod(f"__getitem__({index})")
-                       
-  def fill(self, val):
-    self.addMethods(f"fill({json.dumps(val)})")
-    return self
-
-  def write(self):
-    self.addMethods(f"write()")
-    return self
-  
-  def flash(self, extra = True):
-    self.fill((255, 255, 255)).write()
-    self.getDevice().sleep(FLASH_DELAY_ if isinstance(extra, bool) else extra)
-    return self.fill((0, 0, 0)).write()
-  
 
 class I2C_Core_(Core_):
   def __init__(self, sda = None, scl = None, soft = None, *, device = None):
@@ -894,8 +1047,65 @@ class SoftI2C(I2C):
     super().init(sda, scl, soft = soft, device = device)
 
 
+class SPI(Core_):
+  def __init__(self, id, sck=None, mosi=None, miso=None, baudrate=None, *, polarity=None, phase=None, bits=None, device=None):
+    super().__init__(device)
+
+    if sck == None != mosi == None or sck == None != miso == None:
+      raise Exception("None or all of sck/ mosi/ miso must be given!")
+    elif sck != None:
+      self.init(id, sck, mosi, miso, baudrate=baudrate, polarity=polarity, phase=phase, bits=bits, device=device)
+
+  def init(self, id, sck=None, mosi=None, miso=None, baudrate=None, polarity=None, phase=None, bits=None, device=None, extra=True):
+    super().init(None, f"machine.{'Soft' if not id else ''}SPI({str(id) + ', ' if id else ''}sck=machine.Pin({sck}){getParam('mosi', mosi, 'machine.Pin({})')}{getParam('miso', miso, 'machine.Pin({})')}{getParam('baudrate', baudrate)}{getParam('polarity', polarity)}{getParam('phase', phase)}{getParam('bits', bits)})", device=device, extra=extra)
+
+
+class SoftSPI(SPI):
+  def __init__(self, sck, mosi, miso, *, id=None, baudrate=None, polarity=None, phase=None, bits=None, device=None):
+    super().__init__(id, sck, mosi, miso, baudrate=baudrate, polarity=polarity, phase=phase, bits=bits, device=device)
+
+
+class WS2812(Core_):
+  def __init__(self, n = None, pin = None, device = None, extra = True):
+    super().__init__(device)
+
+    if (pin == None) != (n == None):
+      raise Exception("Both or none of 'pin'/'n' must be given")
+
+    if pin != None:
+      self.init(n, pin, device = device, extra = extra)
+
+  def init(self, n, pin, device = None, extra = True):
+    super().init("WS2812-1", f"neopixel.NeoPixel(machine.Pin({pin}), {n})", device, extra).flash(extra)
+
+  def len(self):
+    return int(self.callMethod("__len__()"))
+               
+
+  def setValue(self, index, val):
+    self.addMethods(f"__setitem__({index}, {json.dumps(val)})")
+
+    return self
+                       
+  def getValue(self, index):
+    return self.callMethod(f"__getitem__({index})")
+                       
+  def fill(self, val):
+    self.addMethods(f"fill({json.dumps(val)})")
+    return self
+
+  def write(self):
+    self.addMethods(f"write()")
+    return self
+  
+  def flash(self, extra = True):
+    self.fill((255, 255, 255)).write()
+    self.getDevice().sleep(FLASH_DELAY_ if isinstance(extra, bool) else extra)
+    return self.fill((0, 0, 0)).write()
+  
+
 class HT16K33(Core_):
-  def __init__(self, i2c = None, /, addr = None, extra = True):
+  def __init__(self, i2c=None, addr=None, extra=True):
     super().__init__()
 
     if i2c:
@@ -932,9 +1142,9 @@ class HT16K33(Core_):
     return self.addMethods(f"render()")
 
 
-def getParam(label, value):
+def getParam(label, value, expr=None):
   if value:
-    return f", {label} = {value}"
+    return f", {label} = {value if expr is None else expr.format(value)}"
   else:
     return ""
 
@@ -981,7 +1191,7 @@ class PWM(Core_):
 
 
 class PCA9685(Core_):
-  def __init__(self, i2c = None, *, addr = None):
+  def __init__(self, i2c=None, *, addr = None):
     super().__init__()
 
     if i2c:
@@ -1068,7 +1278,7 @@ class PWM_PCA9685(Core_):
   
 
 class HD44780_I2C(Core_):
-  def __init__(self, num_columns, num_lines, i2c, /, addr = None, extra  = True):
+  def __init__(self, num_columns, num_lines, /, i2c, addr=None, extra=True):
     super().__init__()
 
     if i2c:
@@ -1137,7 +1347,6 @@ class Servo(Core_):
       self.min = u16_min
       self.max = u16_max
 
-
   def test_(self, specs, tweak, domain):
     if tweak:
       if not specs:
@@ -1147,15 +1356,13 @@ class Servo(Core_):
       if not specs:
         raise Exception("'domain' can not be given without 'specs'!")
 
-
-  def __init__(self, pwm = None, specs = None, /, *, tweak = None, domain = None):
+  def __init__(self, pwm=None, specs=None, /, *, tweak=None, domain=None):
     super().__init__()
 
     self.test_(specs, tweak, domain)
 
     if pwm:
       self.init(pwm, specs, tweak = tweak, domain = domain)
-
 
   def init(self, pwm, specs, tweak = None, domain = None, extra = True):
     super().init("Servo-1", "", pwm.getDevice(), extra)
@@ -1176,7 +1383,6 @@ class Servo(Core_):
 
     self.reset()
 
-
   def angleToDuty(self, angle):
     if self.tweak.invert:
       angle = -angle
@@ -1189,7 +1395,6 @@ class Servo(Core_):
       u16 = self.domain.min
 
     return int(u16)
-  
 
   def dutyToAngle(self, duty):
     angle = self.specs.range * ( duty - self.tweak.offset - self.specs.min ) / ( self.specs.mas - self.specs.min )
@@ -1199,10 +1404,8 @@ class Servo(Core_):
 
     return angle - self.tweak.angle
 
-
   def reset(self):
     self.setAngle(0)
-
 
   def getAngle(self):
     return self.dutyToAngle(self.pwm.getU16())
@@ -1236,8 +1439,15 @@ class OLED_(Core_):
   def text(self, string, x, y, col=1):
     return self.addMethods(f"text('{string}',{x}, {y}, {col})")
   
+  def hText(self, string, y, col=1, trueWidth = None):
+    trueWidth = trueWidth or f"{self.getObject()}.width"
+    return self.addMethods(f"text('{string}',max(( {trueWidth} - len('{string}' ) * 8) // 2, 0), {y}, {col})")
+  
   def rect(self, x, y, w, h, col, fill=True):
     return self.addMethods(f"rect({x},{y},{w},{h},{col},{fill})")
+
+  def ellipse(self, x, y, rx, ry, col, fill=True):
+    return self.addMethods(f"ellipse({x},{y},{rx},{ry},{col}, {fill})")
 
   def draw(self, pattern, width, ox = 0, oy = 0, mul = 1):
     if width % 4:
@@ -1256,7 +1466,7 @@ class SSD1306(OLED_):
   
 
 class SSD1306_I2C(SSD1306):
-  def __init__(self, width = None, height = None, i2c = None, /, addr = None, external_vcc = False, extra = True):
+  def __init__(self, width=None, height=None, /, i2c=None, addr=None, external_vcc=False, extra=True):
     super().__init__()
 
     if bool(width) != bool(height) != bool(i2c):
@@ -1266,15 +1476,15 @@ class SSD1306_I2C(SSD1306):
     elif addr:
       raise Exception("addr can not be given without i2c!")
       
-  def init(self, width, height, i2c, /, external_vcc = False, addr = None, extra = True):
-    super().init(("SSD1306-1", "SSD1306_I2C-1"), f"SSD1306_I2C({width}, {height}, {i2c.getObject()}, {addr}, {external_vcc})", i2c.getDevice(), extra).flash(extra if not isinstance(extra, bool) else 0.15)
+  def init(self, width, height, /, i2c, external_vcc=False, addr=None, extra=True):
+    super().init("SSD1306_I2C-1", f"SSD1306_I2C({width}, {height}, {i2c.getObject()}, {addr}, {external_vcc})", i2c.getDevice(), extra).flash(extra if not isinstance(extra, bool) else 0.15)
 
 
 class SH1106(OLED_):
   pass
 
 class SH1106_I2C(SH1106):
-  def __init__(self, width = None, height = None, i2c = None, /, addr = None, external_vcc = False, extra = True):
+  def __init__(self, width=None, height=None, /, i2c=None, addr=None, external_vcc=False, extra=True):
     super().__init__()
 
     if bool(width) != bool(height) != bool(i2c):
@@ -1284,9 +1494,130 @@ class SH1106_I2C(SH1106):
     elif addr:
       raise Exception("addr can not be given without i2c!")
       
-  def init(self, width, height, i2c, /, external_vcc = False, addr = None, extra = True):
-    super().init(("SH1106-1", "SH1106_I2C-1"), f"SH1106_I2C({width}, {height}, {i2c.getObject()}, addr={addr}, external_vcc={external_vcc})", i2c.getDevice(), extra).flash(extra if not isinstance(extra, bool) else 0.15)
+  def init(self, width, height, /, i2c, external_vcc=False, addr=None, extra=True):
+    super().init("SH1106_I2C-1", f"SH1106_I2C({width}, {height}, {i2c.getObject()}, addr={addr}, external_vcc={external_vcc})", i2c.getDevice(), extra).flash(extra if not isinstance(extra, bool) else 0.15)
 
+OD_SH1106_ = "SH1106"
+OD_SSD1306_ = "SSD1306"
+
+class OLED_I2C():
+  def __new__(cls, driver, *args, **kwargs):
+    if driver == OD_SH1106_:
+      return SH1106_I2C(*args, **kwargs)
+    elif driver == OD_SSD1306_:
+      return SSD1306_I2C(*args, **kwargs)
+    else:
+      raise Exception(f"Unknown OLED driver {driver}!")
+
+c_ = lambda color: f"color565({color})"
+f_ = lambda function, fill: f"{'fill_' if fill else 'draw_'}{function}"
+
+def zoom_rgb565_(raw_data, width, height, hzoom, vzoom):
+  zoomed_width = width * hzoom
+  zoomed_height = height * vzoom
+
+  zoomed_data = bytearray(zoomed_width * zoomed_height * 2)
+
+  for y in range(height):
+    for x in range(width):
+      idx_src = (y * width + x) * 2
+      pixel = raw_data[idx_src:idx_src+2]  # 2 octets RGB565
+      
+      x_start = x * hzoom
+      y_start = y * vzoom
+      
+      for dy in range(vzoom):
+        for dx in range(hzoom):
+          x_dst = x_start + dx
+          y_dst = y_start + dy
+          idx_dst = (y_dst * zoomed_width + x_dst) * 2
+          zoomed_data[idx_dst:idx_dst+2] = pixel
+
+  return bytes(zoomed_data)
+
+
+class ILI9341(Core_):
+  def __init__(self, width, height, /, rotation = 0, dc=None, cs=None, rst=None, spi=None, extra=True):
+    super().__init__()
+
+    if bool(width) != bool(height) != bool(spi) != bool(dc) != bool(cs) != bool(rst):
+      raise Exception("All or none of width/height/spi/dc/cs/rst must be given!")
+    elif width:
+      self.init(width, height, rotation=rotation, spi=spi, dc=dc, cs=cs, rst=rst, extra=extra)
+
+  def init(self, width, height, /, rotation = 0, spi=None, dc=None, cs=None, rst=None, extra=True):
+    super().init("ILI9341-1", f"ILI9341({spi.getObject()}, machine.Pin({cs}), machine.Pin({dc}), machine.Pin({rst}), {width}, {height}, {rotation})", spi.getDevice(), extra)
+
+  def on(self, value=True):
+    return self.addMethods(f"display_{'on' if value else 'off'}()")
+  
+  def off(self):
+    return self.on(False)
+
+  def clear(self, color=0):
+    return self.addMethods(f"clear(color565({color}))")
+
+  def cleanup(self):
+    return self.addMethods("cleanup()")
+  
+  def invert(self, value=True):
+    return self.addMethods(f"invert({value})")
+  
+  def pixel(self, x, y, color):
+    return self.addMethods(f"draw_pixel({x}, {y}, {c_(color)})")
+  
+  def hline(self, x, y, w, color):
+    return self.addMethods(f"draw_hline({x}, {y}, {w}, {c_(color)})")
+
+  def vline(self, x, y, h, color):
+    return self.addMethods(f"draw_vline({x}, {y}, {h}, {c_(color)})")
+  
+  def line(self, x0, y0, x1, y1, color):
+    return self.addMethods(f"draw_line({x0}, {y0}, {x1}, {y1}, {c_(color)})")
+
+  def lines(self, coords, color):
+    return self.addMethods(f"draw_lines([tuple(map(int, pair.split(','))) for pair in '{';'.join(f"{x},{y}" for x,y in coords)}'.split(';')], {c_(color)})")
+
+  def rect(self, x, y, w, h, color, fill=True):
+    return self.addMethods(f"{f_('rectangle', fill)}({x}, {y}, {w}, {h}, {c_(color)})")
+  
+  def poly(self, sides, x0, y0, r, color, rotate=0, fill=True):
+    return self.addMethods(f"{f_('polygon', fill)}({sides}, {x0}, {y0}, {r}, {c_(color)}, {rotate})")
+
+  def circle(self, x, y, r, color, fill=True):
+    return self.addMethods(f"{f_('circle', fill)}({x}, {y}, {r}, {c_(color)})")
+  
+  def ellipse(self, x, y, rx, ry, color, fill=True):
+    return self.addMethods(f"{f_('ellipse', fill)}({x}, {y}, {rx}, {ry}, {c_(color)})")
+  
+  def text(self, x, y, text, color=255, bgcolor = 0, rotate=0):
+    return self.addMethods(f"draw_text8x8({x}, {y}, '{text}', {c_(color)}, {c_(bgcolor)}, {rotate})")    
+
+  def draw(self, stream, width, height, speed=1, hzoom=1, vzoom=0):
+    if vzoom == 0:
+      vzoom = hzoom
+
+    for i in range(height // speed):
+      data = stream.read(width * 2 * speed)
+      self.addMethods(f"draw('{base64.b64encode(zoom_rgb565_(data, width, speed, hzoom, vzoom)).decode('ascii')}',0, {i*speed*vzoom}, {width*hzoom}, {speed*vzoom})")
+
+    if remainder := height % speed:
+      data = stream.read(width * 2 * remainder)
+      self.addMethods(f"draw('{base64.b64encode(zoom_rgb565_(data, width, speed, hzoom, vzoom)).decode('ascii')}',0, {(height // speed) * speed*vzoom}, {width*hzoom}, {remainder*vzoom})")
+
+    return self
+  
+
+class SSD1680_SPI(OLED_):
+  def __init__(self, cs, dc, rst, busy, spi, landscape=True):
+    super().__init__()
+    self.init(cs, dc, rst, busy, spi, landscape=landscape)
+
+  def init(self, cs, dc, rst, busy, spi, landscape=False, extra=True):
+    super().init("SSD1680-1", f"SSD1680({spi.getObject()},machine.Pin({cs}, machine.Pin.OUT),machine.Pin({dc}, machine.Pin.OUT),{rst},machine.Pin({busy}, machine.Pin.IN),{landscape})",spi.getDevice(), extra)
+
+  def hText(self, *args, **kargs):
+    return super().hText(*args, **kargs, trueWidth=250)
 
 
 def pwmJumps(jumps, step = 100, delay = 0.05):
@@ -1328,6 +1659,7 @@ def servoMoves(moves, step = 100, delay = 0.05):
     for command in commands[key]:
       execute_(command, devices[key])
 
+
 def rbShade(variant, i, max):
   match int(variant) % 6:
     case 0:
@@ -1343,6 +1675,7 @@ def rbShade(variant, i, max):
     case 5:
       return [max, 0, max - i]
       
+
 def rbFade(variant, i, max, inOut):
   if not inOut:
     i = max - i
@@ -1368,7 +1701,8 @@ def rbShadeFade(variant, i, max):
     return rbFade((variant + 5 ) % 6, i % max, max, False)
   else:
     return rbShade(variant + int( (i - max) / max ), i % max, max)
-    
+
+
 def setCommitBehavior(behavior):
   global defaultCommitBehavior_
 
