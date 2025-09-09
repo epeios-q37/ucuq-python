@@ -23,7 +23,7 @@ def atkDisplay(dom, id):
 
 
 def atkSubmit(dom):
-  dom.executeVoid(f"generate('{dom.getValue(W_TEXT)}')")
+  dom.executeVoid(f"QRCodeLaunch('{dom.getValue(W_TEXT)}')")
   dom.focus(W_TEXT)
 
 

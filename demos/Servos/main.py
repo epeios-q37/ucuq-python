@@ -446,7 +446,7 @@ def handleSetupsKits(setups, infos):
 
 def getServosSetups(target, infos):
 
-  with open("servos.json", "r") as file:
+  with open(( "/home/csimon/epeios/other/BPY/Apps/UCUq/assets/" if "Q37_EPEIOS" in os.environ else "../assets/" ) + "servos.json", "r") as file:
     config = json.load(file)[target]
 
 
@@ -456,6 +456,8 @@ def getServosSetups(target, infos):
 
 def createServo(deviceId, device, infos, key):
   global servos
+
+  pca = None
 
   if key:
     key += '.'

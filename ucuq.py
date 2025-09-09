@@ -8,7 +8,7 @@ from inspect import getframeinfo, stack
 
 
 CONFIG_FILE_ = ( "/home/csimon/q37/epeios/other/BPY/Apps/UCUq/" if "Q37_EPEIOS" in os.environ else "../" ) + "ucuq.json"
-KITS_FILE_ = ( "/home/csimon/epeios/other/BPY/Apps/UCUq/" if "Q37_EPEIOS" in os.environ else "../" ) + "kits.json"
+KITS_FILE_ = ( "/home/csimon/epeios/other/BPY/Apps/UCUq/assets/" if "Q37_EPEIOS" in os.environ else "../assets/" ) + "kits.json"
 
 try:
   with open(CONFIG_FILE_, "r") as config:
@@ -606,8 +606,8 @@ class Multi:
   def __init__(self, object):
     self.objects = [object]
 
-  def add(self, objet):
-    self.objects.append(objet)
+  def add(self, object):
+    self.objects.append(object)
 
   def __getattr__(self, methodName):
     def wrapper(*args, **kwargs):
@@ -813,13 +813,13 @@ def getInfos(device):
   return infos
 
 
-def ATKConnect(dom, body, *, device = None):
+def ATKConnect(dom, body, *, target = "", device = None):
   getKits()
   
   if not KITS_:
     raise Exception("No kits defined!")
 
-  dom.inner("", """
+  dom.inner(target, """
   <style>
     .ucuq-connection {
       display: inline-block;
@@ -862,7 +862,7 @@ def ATKConnect(dom, body, *, device = None):
     device = getDemoDevice()
 
   if not device:
-    dom.inner("", "<h3>ERROR: Please launch the 'Config' application!</h3>")
+    dom.inner(target, "<h3>ERROR: Please launch the 'Config' application!</h3>")
     raise SystemExit("Unable to connect to a device!")
   
   setDevice(device = device)
@@ -875,13 +875,13 @@ def ATKConnect(dom, body, *, device = None):
 
   deviceId =  getDeviceId(infos)
 
-  dom.inner("", ATK_BODY_.format(infos[IK_KIT_LABEL], deviceId))
+  dom.inner(target, ATK_BODY_.format(infos[IK_KIT_LABEL], deviceId))
 
   dom.inner("ucuq_body", body)
 
   time.sleep(1.5)
 
-  dom.inner("", body)
+  dom.inner(target, body)
 
   atlastk.setCallback(UCUQ_XDEVICE_ACTION_, handleXDeviceRetrieving_)
 
@@ -1293,7 +1293,7 @@ class HD44780_I2C(Core_):
     return self.addMethods(f"move_to({x},{y})")
 
   def putString(self, string):
-    return self.addMethods(f"putstr(\"{string}\")")
+    return self.addMethods(f"putstr(\"{string.replace('"','\\"')}\")")
 
   def clear(self):
     return self.addMethods("clear()")
@@ -1616,8 +1616,8 @@ class SSD1680_SPI(OLED_):
   def init(self, cs, dc, rst, busy, spi, landscape=False, extra=True):
     super().init("SSD1680-1", f"SSD1680({spi.getObject()},machine.Pin({cs}, machine.Pin.OUT),machine.Pin({dc}, machine.Pin.OUT),{rst},machine.Pin({busy}, machine.Pin.IN),{landscape})",spi.getDevice(), extra)
 
-  def hText(self, *args, **kargs):
-    return super().hText(*args, **kargs, trueWidth=250)
+  def hText(self, *args, trueWidth=None, **kargs):
+    return super().hText(*args, trueWidth=trueWidth or 250, **kargs)
 
 
 def pwmJumps(jumps, step = 100, delay = 0.05):
