@@ -426,7 +426,7 @@ def ucuqGetInfos():
   }}
 
   if kit := ucuq.settings.getKitLabel():
-  infos["{IK_KIT_LABEL}"] = kit
+    infos["{IK_KIT_LABEL}"] = kit
 
   return infos
 """
@@ -721,12 +721,12 @@ class Device(Device_):
     self.pendingModules_ = ["Init-1"]
     self.handledModules_ = []
     self.commands_ = [
-      """
+"""
 def sleepWait(start, us):
   elapsed = time.ticks_us() - start
             
   if elapsed < us:
-  time.sleep_us(int(us - elapsed))
+    time.sleep_us(int(us - elapsed))
 """
     ]
     self.commitBehavior = None
@@ -1481,7 +1481,7 @@ class HD44780_I2C(Core_):
     return self.addMethods(f"move_to({x},{y})")
 
   def putString(self, string):
-    return self.addMethods("putstr(\"{}\")".format(string.replace('"','\\"')))
+    return self.addMethods('putstr("{}")'.format(string.replace('"','\\"')))
 
   def clear(self):
     return self.addMethods("clear()")
