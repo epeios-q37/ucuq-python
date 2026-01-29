@@ -7,10 +7,10 @@ import ucuq, atlastk
 
 def atk(dom):
   ucuq.ATKConnect(dom, BODY)
-  ucuq.GPIO(2).low()
+  ucuq.GPIO(8).high()
   
 def atkSwitch(dom, id):
-  ucuq.GPIO(2).high(dom.getValue(id) == "true")
+  ucuq.GPIO(8).high(dom.getValue(id) != "true")
 
 with open('Body.html', 'r') as file:
   BODY = file.read()

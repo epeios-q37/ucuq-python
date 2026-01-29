@@ -1098,11 +1098,14 @@ class Nothing_:
 
 class Core_:
   def __new__(cls, *kargs, **kwargs):
-    if "device" not in kwargs or type(devices := kwargs["device"]) is Multi:
+    if "device" in kwargs:
+      devices = kwargs["device"]
+    else:
+      devices = getDevice()
+    
+    if type(devices) is Multi:
       if "device" in kwargs:
         kwargs.pop("device")
-      else:
-        devices = getDevice()
         
       multi = Multi()
       
@@ -1113,9 +1116,9 @@ class Core_:
         
       return multi
     else:
-        obj = object.__new__(cls)
-        cls.__init__(obj, *kargs, **kwargs)
-        return obj
+      obj = object.__new__(cls)
+      cls.__init__(obj, *kargs, **kwargs)
+      return obj
   
   def __init__(self, device=None):
     self.id = None
