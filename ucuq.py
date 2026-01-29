@@ -324,7 +324,7 @@ def getKits():
 ###############
 
 
-import zlib, base64, time, atlastk, binascii
+import zlib, base64, atlastk, re, copy, time
 
 ITEMS_ = "i_"
 
@@ -560,12 +560,12 @@ def testCommit_(commit, behavior=None):
     return commit
 
 
-def sleepStart(id=None):
-  return getDevice().sleepStart(id)
+def sleepStart():
+  return getDevice().sleepStart()
 
 
-def sleepWait(id, secs):
-  return getDevice().sleepWait(id, secs)
+def sleepWait(secs):
+  return getDevice().sleepWait(secs)
 
 
 def sleep(secs):
@@ -691,25 +691,37 @@ def getBits(infos, *bitLabels, device=None):
 
 
 class Multi:
-  def __init__(self, object):
-    self.objects = [object]
+  def __init__(self, object = None):
+    self.objects_ = []
+
+    if object is not None:
+      self.add(object)
 
   def add(self, object):
-    self.objects.append(object)
+    self.objects_.append(object)
+    
+  def __len__(self):
+    return len(self.objects_)
 
   def __getattr__(self, methodName):
     def wrapper(*args, **kwargs):
-      for obj in self.objects:
-        getattr(obj, methodName)(*args, **kwargs)
+      for object in self.objects_:
+        if hasattr(object, "__getattr__"):
+          object.__getattr__(methodName)(*args, **kwargs)
+        else:
+          getattr(object, methodName)(*args, **kwargs)
       return self
 
     return wrapper
 
   def __getitem__(self, index):
-    if index < len(self.objects):
-      return self.objects[index]
+    if index < len(self.objects_):
+      return self.objects_[index]
     else:
       raise IndexError("Index out of range for Multi object.")
+    
+  def getObjects(self):
+    return self.objects_
 
   # Workaround for Brython (https://github.com/brython-dev/brython/issues/2590)
   def __bool__(self):
@@ -717,7 +729,26 @@ class Multi:
 
 
 class Device(Device_):
-  def __init__(self, *, id=None, token=None, callback=None):
+  def __new__(cls, id=None, token=None, callback=None):
+    if type(id) in (list, tuple):
+      ids = id
+      
+      if type(token) not in (list, tuple):
+        tokens = (token,) * len(ids)
+        
+      if len(tokens) != len(ids):
+        raise Exception("'ids' and (tokens' must be of same amounr!)")
+      
+      multi = Multi()
+      
+      for i in range(len(ids)):
+        multi.add(Device(id=ids[i], token=tokens[i], callback=callback))
+        
+      return multi
+    else:
+      return super().__new__(Device)
+        
+  def __init__(self, *, id=None, token=None, callback=None):  # If id == "", using id and token from config.
     self.pendingModules_ = ["Init-1"]
     self.handledModules_ = []
     self.commands_ = [
@@ -729,18 +760,25 @@ def sleepWait(start, us):
     time.sleep_us(int(us - elapsed))
 """
     ]
-    self.commitBehavior = None
+    self.commitBehavior_ = None
+    self.timer_ = None
 
     super().__init__(id=id, token=token, callback=callback)
+    
+    if id == "":
+      self.connect(id=None, token=token)
 
   def __del__(self):
-    self.commit()
+    try:
+      self.commit()
+    except:
+      pass
 
   def testCommit_(self, commit):
-    return testCommit_(commit, self.commitBehavior)
+    return testCommit_(commit, self.commitBehavior_)
 
   def addModule(self, module):
-    if not module in self.pendingModules_ and not module in self.handledModules_:
+    if module not in self.pendingModules_ and module not in self.handledModules_:
       self.pendingModules_.append(module)
 
     return self
@@ -762,19 +800,36 @@ def sleepWait(start, us):
 
     return self
 
-  def sleepStart(self, id=None):
-    if id == None:
-      id = getObjectIndice()
+  def sleepStart(self):
+    if self.timer_ is None:
+      self.timer_ = getObjectIndice()
 
-    self.addCommand(f"{getObject_(id)} = time.ticks_us()")
+    self.addCommand(f"{getObject_(self.timer_)} = time.ticks_us()")
 
     return id
 
-  def sleepWait(self, id, secs):
-    self.addCommand(f"sleepWait({getObject_(id)}, {secs * 1000000})")
+  def sleepWait(self, secs):
+    if self.timer_ is None:
+      raise Exception("'sleepWait' called before 'sleepStart'!")
+      
+    self.addCommand(f"sleepWait({getObject_(self.timer_)}, {secs * 1000000})")
 
   def sleep(self, secs):
     self.addCommand(f"time.sleep_us({int(secs * 1000000)})")
+    
+  def ntpSetTime(self):
+    self.addCommand(NTP_SCRIPT_)
+    
+  def ntpSleepUntil(self, timestamp):
+    # self.addCommand(f"sleep_until_us({timestamp})")
+    self.addCommand(f"time.sleep_us({timestamp} - precise_time_us())")
+    
+  def ntpSleep(self, delay):
+    self.addCommand(f"time.sleep_us({delay})")
+    
+  def ntpTime(self):
+    return self.commit("precise_time_us()")
+    
 
 
 def getBaseInfos_(device=None):
@@ -995,12 +1050,12 @@ def getDevice(device=None, *, id=None, token=None):
   if device and (token or id):
     displayExitMessage_("'device' can not be given together with 'token' or 'id'!")
 
-  if device == None:
+  if device is None:
     global device_
 
     if token or id:
       device_ = Device(id=id, token=token)
-    elif device_ == None:
+    elif device_ is None:
       device_ = Device()
       device_.connect()
     return device_
@@ -1042,6 +1097,26 @@ class Nothing_:
 
 
 class Core_:
+  def __new__(cls, *kargs, **kwargs):
+    if "device" not in kwargs or type(devices := kwargs["device"]) is Multi:
+      if "device" in kwargs:
+        kwargs.pop("device")
+      else:
+        devices = getDevice()
+        
+      multi = Multi()
+      
+      for device in devices:
+        obj = object.__new__(cls)
+        cls.__init__(obj, *kargs, **kwargs, **{"device": device})
+        multi.add(obj)
+        
+      return multi
+    else:
+        obj = object.__new__(cls)
+        cls.__init__(obj, *kargs, **kwargs)
+        return obj
+  
   def __init__(self, device=None):
     self.id = None
     self.device_ = device
@@ -1089,16 +1164,31 @@ class Core_:
   def callMethod(self, method):
     return self.device_.commit(f"{self.getObject()}.{method}")
 
-  def sleepStart(self, id=None):
-    return self.device_.sleepStart(id)
+  def sleepStart(self):
+    return self.device_.sleepStart()
 
-  def sleepWait(self, id, secs):
-    self.device_.sleepWait(id, secs)
+  def sleepWait(self, secs):
+    self.device_.sleepWait(secs)
     return self
 
   def sleep(self, secs):
     self.device_.sleep(secs)
     return self
+  
+  def ntpSetTime(self):
+    self.device_.ntpSetTime()
+    return self
+  
+  def ntpSleepUntil(self, timestamp):
+    self.device_.ntpSleepUntil(timestamp)
+    return self
+    
+  def ntpSleep(self, delay):
+    self.device_.ntpSleep(delay)
+    return self
+    
+  def ntpTime(self):
+    return self.device_.ntpTime()
 
 
 class GPIO(Core_):
@@ -1234,38 +1324,81 @@ class SoftSPI(SPI):
 
 
 class WS2812(Core_):
-  def __init__(self, n=None, pin=None, device=None, extra=True):
+  def __init__(self, n=None, pin=None, offset=0, device=None, extra=True):
     super().__init__(device)
 
     if (pin == None) != (n == None):
       raise Exception("Both or none of 'pin'/'n' must be given")
 
     if pin != None:
-      self.init(n, pin, device=device, extra=extra)
+      self.init(n, pin, offset=offset, device=device, extra=extra)
 
-  def init(self, n, pin, device=None, extra=True):
+  def init(self, n, pin, offset=0, device=None, extra=True):
+    self.n_ = n
+    self.offset_ = offset
+    self.current_ = [(0,0,0)] * n
+    self.new_ = [(0,0,0)] * n
     super().init(
       "WS2812-1", f"neopixel.NeoPixel(machine.Pin({pin}), {n})", device, extra
     ).flash(extra)
 
   def len(self):
+    return self.n_
+  
+  def straightLen(self):
     return int(self.callMethod("__len__()"))
+  
+  def convert(self, index):
+    return (index + self.offset_) % self.n_
 
   def setValue(self, index, val):
-    self.addMethods(f"__setitem__({index}, {json.dumps(val)})")
-
+    self.new_[self.convert(index)] = tuple(val)
     return self
-
+  
+  def straightSetValue(self, index, val):
+    self.setValue(index, val)
+    return self.addMethods(f"__setitem__({self.convert(index)}, {json.dumps(val)})")
+  
   def getValue(self, index):
-    return self.callMethod(f"__getitem__({index})")
+    return self.new_[self.convert(index)]
 
+  def straightGetValue(self, index):
+    return self.callMethod(f"__getitem__({self.convert(index)})")
+  
   def fill(self, val):
-    self.addMethods(f"fill({json.dumps(val)})")
+    self.new_ = [tuple(val)] * self.n_
     return self
 
+  def straightFill(self, val):
+    self.fill(val)
+    return self.addMethods(f"fill({json.dumps(val)})")
+
+  def straightWrite(self):
+    self.current_ = copy.deepcopy(self.new_)
+    return self.addMethods("write()")
+  
   def write(self):
-    self.addMethods(f"write()")
-    return self
+    diffs = []
+    same = self.new_[0]
+    
+    for i in range(len(self.new_)):
+      if self.new_[i] != self.current_[i]:
+        diffs.append((i,self.new_[i]))
+        
+      if same is not None and same != self.new_[i]:
+        same = None
+      
+    if len(diffs):
+      if same is not None:
+        self.straightFill(same)
+      else:
+        command = ""
+        for diff in diffs:
+          command += f"{self.getObject()}.__setitem__({diff[0]},{json.dumps(diff[1])})\n"
+        self.addCommand(command)
+      return self.straightWrite()
+    else:
+      return self
 
   def flash(self, extra=True):
     self.fill((255, 255, 255)).write()
@@ -1361,6 +1494,80 @@ class PWM(Core_):
 
   def deinit(self):
     return self.addMethods(f"deinit()")
+  
+BUZZER_COEFF_ = 2 ** (1/12)
+BASE_FREQ_ = 6.875
+
+class Multi_:
+  def __new__(cls, *kargs, **kwargs):
+    position, name = cls.param_
+    
+    if name in kwargs:
+      ArgIsKW = True
+      values = kwargs[name]
+    elif len(kargs) >= position:
+      values = kargs[position]
+      ArgIsKW = False
+      kargs = list(kargs)
+    else:
+      values = None
+    
+    if type(values) is Multi:
+      multi = Multi()
+      
+      for value in values:
+        if ArgIsKW:
+          kwargs[name] = value
+        else:
+          kargs[position] = value
+
+        obj = object.__new__(cls)
+        cls.__init__(obj, *kargs, **kwargs)
+        multi.add(obj)
+      return multi
+    else:
+      obj = object.__new__(cls)
+      cls.__init__(obj, *kargs, **kwargs)
+      return obj
+
+class Buzzer(Multi_):
+  param_ = (0, "pwm")
+  def __init__(self, pwm=None, *, u16=32000, extra=True):
+    self.on_ = False
+    self.init(pwm, u16=u16, extra=extra)
+
+  def init(self, pwm, *, u16=32000, extra=True):
+    self.u16_ = u16
+    self.pwm_ = pwm
+    
+    if pwm is not None:
+      self.pwm_.setU16(0)
+    
+    return self
+    
+  def off(self):
+    if self.on_:
+      self.on_ = False
+      self.pwm_.setU16(0)
+      
+    return self
+    
+  def on(self, freq):
+    if freq == 0:
+      self.off()
+    elif self.on_:
+        self.pwm_.setFreq(freq)
+    else:
+        self.pwm_.setFreq(freq).setU16(self.u16_)
+        self.on_ = True
+
+    return self
+        
+  def play(self, note):
+    if note == 0:
+      return self.off()
+    else:
+      return self.on(round(BASE_FREQ_ * BUZZER_COEFF_ ** ( note + 3 )))
 
 
 class PCA9685(Core_):
@@ -1456,7 +1663,8 @@ class PWM_PCA9685(Core_):
     self.pca.setPrescale(value)
 
 
-class HD44780_I2C(Core_):
+class HD44780_I2C(Multi_, Core_):
+  param_ = (2, "i2c")
   def __init__(self, num_columns, num_lines, /, i2c, addr=None, extra=True):
     super().__init__()
 
@@ -1642,11 +1850,20 @@ class OLED_(Core_):
       f"text('{string}',max(( {trueWidth} - len('{string}' ) * 8) // 2, 0), {y}, {col})"
     )
 
-  def rect(self, x, y, w, h, col, fill=True):
+  def rect(self, x, y, w, h, col, fill=False):
     return self.addMethods(f"rect({x},{y},{w},{h},{col},{fill})")
 
-  def ellipse(self, x, y, rx, ry, col, fill=True):
-    return self.addMethods(f"ellipse({x},{y},{rx},{ry},{col}, {fill})")
+  def hline(self, x, y, w, col):
+    return self.addMethods(f"hline({x},{y},{w},{col})")
+
+  def vline(self, x, y, h, col):
+    return self.addMethods(f"vline({x},{y},{h},{col})")
+
+  def line(self, x1, y1, x2, y2, col):
+    return self.addMethods(f"line({x1},{y1},{x2},{y2},{col})")
+
+  def ellipse(self, x, y, rx, ry, col, fill=False, quad=15):
+    return self.addMethods(f"ellipse({x},{y},{rx},{ry},{col},{fill},{quad})")
 
   def draw(self, pattern, width, ox=0, oy=0, mul=1):
     if width % 4:
@@ -1664,7 +1881,8 @@ class SSD1306(OLED_):
     return self.addMethods(f"rotate({rotate})")
 
 
-class SSD1306_I2C(SSD1306):
+class SSD1306_I2C(Multi_, SSD1306):
+  param_ = (2, 'i2c')
   def __init__(
     self,
     width=None,
@@ -2004,3 +2222,187 @@ def setCommitBehavior(behavior):
   global defaultCommitBehavior_
 
   defaultCommitBehavior_ = behavior
+  
+  
+PP_NOTE_MAP_ = {
+  'C': -9, 'C#': -8, 'Db': -8, 'D': -7, 'D#': -6, 'Eb': -6,
+  'E': -5, 'F': -4, 'F#': -3, 'Gb': -3, 'G': -2, 'G#': -1, 'Ab': -1,
+  'A': 0, 'A#': 1, 'Bb': 1, 'B': 2
+}  
+  
+def ppNote2Midi_(noteStr, octave):
+  if noteStr == 'R':
+    return 0  # silence
+  elif noteStr == '-':
+    return -1
+  
+  if len(noteStr) == 2 and noteStr[1] in('b','#'):
+    noteKey = noteStr
+  else:
+    noteKey = noteStr[0]
+
+  if noteKey not in PP_NOTE_MAP_:
+    return 0
+  
+  return 12 * (int(octave) + 2) + PP_NOTE_MAP_[noteKey]
+
+
+def ppDuration2Seconds_(duration, base, dots=0):
+  value = 1 / (2 ** (4 - duration))
+
+  total = value
+  
+  if dots == -1:
+    total = total * 2  / 3
+  else:
+    for _ in range(dots):
+      value /= 2
+      total += value
+
+  return base * total
+
+
+def ppParseNoteString_(note_str, base):
+  match = re.match(r'([A-Z][b#]?)(\d)(\d)(\.*,?)', re.sub(r"\s+", "", note_str))
+
+  if not match:
+    match = re.match(r'([R\-])(\d)(\.*,?)', note_str)
+
+    if not match:
+      return None
+
+    octave = 0
+    note, duration, dots = match.groups()
+  else:
+    note, octave, duration, dots = match.groups()
+    
+  return ppNote2Midi_(note, int(octave)), ppDuration2Seconds_(int(duration), base, len(dots) if len(dots) == 0 or dots[0] != ',' else -1),
+
+
+def ppExtractNotes_(voice_str):
+  return re.findall(r'([A-Z\-][b#]?\d\d\.*,?|[R\-]\d\.*,?)', voice_str)
+
+
+def polyphonicPlay(voices, tempo, userObject, callback):
+  voiceNotes = [ppExtractNotes_(v) for v in voices]
+  
+  raws = []
+
+  for a in voiceNotes:
+    raw = []
+    for b in a:
+      raw.append(ppParseNoteString_(b, 60.0 / tempo))
+    raw.append((0, 0))
+    raws.append(raw)
+
+  indexes = [0 for _ in raws]
+  freqs = [0 for _ in raws]
+  delays = [0 for _ in raws]
+
+  while any(i is not None for i in indexes):
+    events = []
+
+    delay = 100000
+
+    for i in range(len(indexes)):
+      if indexes[i] is not None:
+        if delays[i] == 0:
+          freqs[i], delays[i] = raws[i][indexes[i]]
+          indexes[i] += 1
+          events.append((i, freqs[i]))
+        delay = min(delay, delays[i])
+
+    callback(userObject, events, delay)
+
+    for i in range(len(indexes)):
+      if indexes[i] is not None and indexes[i] >= len(raws[i]):
+        indexes[i] = None
+      else:
+        delays[i] -= delay
+        
+        
+###### Begin of section high precision time handling based on NTP #####
+NTP_SCRIPT_ = """
+import socket
+import struct
+import time
+import machine
+
+NTP_DELTA = 2208988800  # Différence entre epoch NTP (1900) et Unix (1970)
+
+# --- Extraction correcte d'un timestamp NTP en microsecondes ---
+def unpack_ntp_timestamp_us(data, offset):
+    sec, frac = struct.unpack("!II", data[offset:offset+8])
+    unix_sec = sec - NTP_DELTA
+    # Conversion en microsecondes (sans float)
+    return unix_sec * 1_000_000 + (frac * 1_000_000) // 2**32
+
+
+# --- Requête NTP complète T1/T2/T3/T4 ---
+def ntp_time_t1_t4_us(host="fr.pool.ntp.org"):
+    addr = socket.getaddrinfo(host, 123)[0][-1]
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(2)
+
+    packet = b'\x1b' + 47 * b'\0'
+
+    # T1 : envoi (µs)
+    T1_us = time.ticks_us()
+    s.sendto(packet, addr)
+
+    # Réception
+    data = s.recv(48)
+    T4_us = time.ticks_us()  # µs
+    s.close()
+
+    # T2 et T3 : timestamps serveur (µs)
+    T2_us = unpack_ntp_timestamp_us(data, 32)
+    T3_us = unpack_ntp_timestamp_us(data, 40)
+
+    # Formule NTP officielle (RFC 5905), en microsecondes
+    offset_us = ((T2_us - T1_us) + (T3_us - T4_us)) // 2
+
+    # Temps Unix corrigé (µs)
+    return T4_us + offset_us
+
+
+# --- Ancrage monotone ---
+t_ntp_us = ntp_time_t1_t4_us()
+t0_ticks_us = time.ticks_us()
+TIME_ANCHOR_US = (t_ntp_us, t0_ticks_us)
+
+
+def precise_time_us():
+    t_ntp_us, t0_ticks_us = TIME_ANCHOR_US
+    elapsed_us = time.ticks_diff(time.ticks_us(), t0_ticks_us)
+    return t_ntp_us + elapsed_us
+
+
+# --- Mise à l'heure du RTC ---
+def set_rtc_from_us(timestamp_us):
+    ts = timestamp_us // 1_000_000
+    tm = time.localtime(ts)
+    us = timestamp_us % 1_000_000
+    rtc_tuple = (tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], us)
+    machine.RTC().datetime(rtc_tuple)
+
+set_rtc_from_us(precise_time_us())
+
+def sleep_until_us(target_time_us):
+    while precise_time_us() < target_time_us:
+        pass
+"""
+
+def ntpSetTime(device = None):
+  return getDevice(device).ntpSetTime()
+
+def ntpSleepUntil(timestamp, device = None):
+  return getDevice(device).ntpSleepUntil(timestamp)
+
+def ntpSleep(delay, device = None):
+  return getDevice(device).ntpSleep(delay)
+
+def ntpTime(device = None):
+  return getDevice(device).ntpTime()
+
+###### End of section high precision time handling based on NTP #####
