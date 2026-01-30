@@ -70,7 +70,7 @@ def callback(buzzer, events, duration):
 
 def main():
   global timestamp, start
-  start = timestamp = time.time() + 2
+  start = timestamp = time.time() + 3
   
   ucuq.polyphonicPlay(VOICES, 120, buzzer, callback)
 
