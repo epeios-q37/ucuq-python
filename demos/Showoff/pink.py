@@ -1,93 +1,58 @@
-import os, sys
+import ucuq
+import random
+import shared
 
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
-sys.path.extend(("../..","../../atlastk.zip"))
+from types import SimpleNamespace
 
-import ucuq, random, zlib, base64, time
-
-RGB_MAX = 10
-RGB_MIN = 2
-
-DEVICE_IDS = ("", "India", "Lima")
-
-ucuq.setDevice(DEVICE_IDS)
-
-rgb = ucuq.WS2812(8, 20)
-buzzer = ucuq.Buzzer(ucuq.PWM(5))
-lcd = ucuq.HD44780_I2C(16, 2, ucuq.SoftI2C(6, 7))
-oled = ucuq.SSD1306_I2C(128, 64, ucuq.I2C(8, 9))
-
-lcd.backlightOff()
-
-unpack = lambda data: zlib.decompress(base64.b64decode(data)).decode()
+from shared import devices, RAINBOW, sleep
 
 
-ucuq.ntpSetTime()
-
-def sleep(timestamp):
-  ucuq.ntpSleepUntil(int(timestamp * 1_000_000))
-
-def rainbow_gradient(n, max):
-  colors = []
+def callback_(helper, events, duration):
+  global pantherPict, pantherDelay, led
   
-  for i in range(n):
-    h = (i * 6) / n
-    x = int((1 - abs((h % 2) - 1)) * max)
+  sleep(helper.timestamp)
 
-    if   0 <= h < 1: r, g, b = max, x, 0
-    elif 1 <= h < 2: r, g, b = x, max, 0
-    elif 2 <= h < 3: r, g, b = 0, max, x
-    elif 3 <= h < 4: r, g, b = 0, x, max
-    elif 4 <= h < 5: r, g, b = x, 0, max
-    else:            r, g, b = max, 0, x
-
-    colors.append((r, g, b))
-  return colors
-
-RAINBOW = rainbow_gradient(50, RGB_MAX)
-
-def callback(buzzer, events, duration):
-  global timestamp, pantherPict, pantherDelay, led
+  helper.timestamp += duration
   
-  sleep(timestamp)
-
   for event in events:
     if event[1] !=-1:
-      buzzer.off()
+      devices.buzzers.off()
       if event[1] != 0:
-        buzzer.play(int(event[1]))
-        rgb.setValue(led % 8, RAINBOW[led % len(RAINBOW)]).write()
+        devices.buzzers.play(int(event[1]))
         led += 1
-        rgb.setValue(led % 8,(0,0,0)).write()
         
-  timestamp += duration
+  devices.rgbs.setValue(led, RAINBOW[led % len(RAINBOW)]).write()
+  devices.rgbs.setValue(led + 1,(0,0,0)).write()
   
-  if (timestamp - start) > pantherDelay * pantherPict and duration >= .35:
-    oled.fill(0).show()
-    oled.draw(unpack(PANTHER[pantherPict % len(PANTHER)]), 128).show()
+  if (helper.timestamp - helper.start) > pantherDelay * pantherPict and duration >= .35:
+    devices.oleds.fill(0).show()
+    devices.oleds.draw(shared.unpack(PANTHER[pantherPict % len(PANTHER)]), 128).show()
     pantherPict += 1
-    
 
-def main():
-  global timestamp, start
-  start = timestamp = time.time() + 3
+def launch(timestamp):
+  helper = SimpleNamespace()
   
-  ucuq.polyphonicPlay(VOICES, 120, buzzer, callback)
+  helper.start = helper.timestamp = timestamp + 1
+  
+  shared.polyphonicPlay(VOICES, 120, helper, callback_)
 
   TEXT = " " * 14 + "That's all folks!" + " " * 16
 
-  lcd.backlightOn()
+  devices.lcds.backlightOn()
 
   for i in range(64):
-    rgb.setValue(((led + (i // 8)) % 8),(0,0,0)).write()
-    oled.scroll(0, 1).show()
-    lcd.moveTo(0,0).putString(TEXT[i//2:i//2+16])
-    timestamp += 0.07
-    sleep(timestamp)
+    devices.rgbs.setValue(((led + (i // 8)) % 8),(0,0,0)).write()
+    devices.oleds.scroll(0, 1).show()
+    devices.lcds.moveTo(0,0).putString(TEXT[i//2:i//2+16])
+    helper.timestamp += 0.07
+    sleep(helper.timestamp)
 
-  oled.fill(0).show()
-  lcd.backlightOff()
-  rgb.fill((0, 0, 0)).write()
+  devices.oleds.fill(0).show()
+  devices.lcds.backlightOff()
+  devices.rgbs.fill((0, 0, 0)).write()
+  
+  return helper.timestamp
+
 
 PANTHER = (
   'eJydlUtywzAIhq+ETMbAcSoM9z9CASddVMidqRZZ5BPi9YPdH489438eg/HI1ZWeuLjjE59/cGSa29DCkhB39gYQnLbcAcjPuNCxyoqDn2fLA7mmverKDShc+2A+Tmnqo55VNVKAE3l9XJwjN4sb8QMrx+CgN7CmP8iMBtfNm/bQ+SKj6/PYyvEgTx7d86b8JF/BpbKoO7/9a5QHqz6Z7JpfFOiKJEh6rjSJj7iGPTdwYgg33vN4eSb3HTeSd3k23BXlkfNP3Zr+uUXkmXv66ObHXjmuUqydr5Fuq37WyS80leFV+Toud9uSc9N/Q8jZyDudfMIxwAtLGtpxzgrE4/E0dNOPtRdSeq15+pWU/8Y8S5J74cpGdwfKxZRWfHEOStXL3HHEXJYxQ9TzKVoYNstvatgNncp9/DOryiMC5D7/3DnxOm7iq8Ewih613GBe2QSG0XK2mIzQBQ/oxGHIyNl/vvrux/4ou6GteobRvVSG+VgfqL6WfVRZVnnqR52WnJcOSxpflebhjMtnDdN5DqUSkzb7Tf3eeslukf524CWxDJ2a/VcLT+kj3YXXH1bagI6/oxjT7eze/+/5BlP18+4=',
@@ -115,11 +80,5 @@ VOICES = ("""
 
 pantherDelay = 60 // len(PANTHER)
 pantherPict = 0
-timestamp = 0
-start = 0
 led = random.randrange(len(RAINBOW))
 LED_LIMITER = 15
-
-main()
-
-__import__("os")._exit(0)
