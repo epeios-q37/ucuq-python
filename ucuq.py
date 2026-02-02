@@ -2300,7 +2300,7 @@ def polyphonicPlay(voices, tempo, userObject, callback):
     raws.append(raw)
 
   indexes = [0 for _ in raws]
-  freqs = [0 for _ in raws]
+  notes = [0 for _ in raws]
   delays = [0 for _ in raws]
 
   while any(i is not None for i in indexes):
@@ -2311,9 +2311,9 @@ def polyphonicPlay(voices, tempo, userObject, callback):
     for i in range(len(indexes)):
       if indexes[i] is not None:
         if delays[i] == 0:
-          freqs[i], delays[i] = raws[i][indexes[i]]
+          notes[i], delays[i] = raws[i][indexes[i]]
           indexes[i] += 1
-          events.append((i, freqs[i]))
+          events.append((i, notes[i]))
         delay = min(delay, delays[i])
 
     callback(userObject, events, delay)
