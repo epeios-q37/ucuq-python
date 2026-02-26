@@ -3,25 +3,26 @@ import os, sys
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.extend(("../..","../../atlastk.zip"))
 
-import atlastk  # noqa: F401
-import ucuq # pyright: ignore[reportMissingImports]
 import time
-import pink
-import trio
+
+import atlastk  # noqa: F401
+import ucuq
+
 import colors
-
+import indy
 import partner
+import pink
 import show
+import trio
 
+DEVICES_ = ("Alpha", "India", "Lima", "Golf")
 
-DEVICES = ("Alpha", "India", "Lima", "Golf")
-
-HTML_OPTION = "<option>{}</option>"
+HTML_OPTION_ = "<option>{}</option>"
 
 def atk(dom):
-  devices = "\n".join(HTML_OPTION.format(device) for device in DEVICES)
+  devices = "\n".join(HTML_OPTION_.format(device) for device in DEVICES_)
     
-  dom.inner("", BODY.format(devices, DEVICES[0], *DEVICES[:3]))  # type: ignore # noqa: F821
+  dom.inner("", BODY.format(devices, DEVICES_[0], *DEVICES_[:3]))  # type: ignore # noqa: F821
   colors.fill(dom)
   colors.update(dom)
   
@@ -57,6 +58,11 @@ def atkShowTest():
   show.devices.rgbs.flash()
   
   
+def atkShowIndy(dom):
+  timestamp = show.countdownIfSelected(dom, time.time() + 1)
+  indy.launch(timestamp)
+  
+
 def atkShowPink(dom):
   timestamp = show.countdownIfSelected(dom, time.time() + 1)
   pink.launch(timestamp)

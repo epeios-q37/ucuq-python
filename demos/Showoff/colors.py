@@ -1,5 +1,5 @@
-from show import devices, sleep
-from shared import RAINBOW
+from shared import RAINBOW as RAINBOW_
+from show import devices as devices_, sleep as sleep_
 
 W_SCHEMES = "ColorSchemes"
 W_DELAY = "ColorDelay"
@@ -12,28 +12,28 @@ class Colors_:
     x = x % 15
     index = x // 5
     x = x % 5
-    devices.rgbs[index].setValue((1 - y) * x + y * (8 - x) * (x != 0), col)
+    devices_.rgbs[index].setValue((1 - y) * x + y * (8 - x) * (x != 0), col)
     
     return self
     
   def fill(self, col):
-    devices.rgbs.fill(col)
+    devices_.rgbs.fill(col)
 
     return self
     
   def write(self):
-    devices.rgbs.write()
+    devices_.rgbs.write()
 
     return self
   
-  
 SCHEMES_ = []  
+
 
 def _(timestamp, delay):
   delay /= 1.5
 
-  for color in RAINBOW:
-    sleep(timestamp)
+  for color in RAINBOW_:
+    sleep_(timestamp)
     timestamp += delay
     colors_.fill(color)
     colors_.write()
@@ -43,16 +43,17 @@ def _(timestamp, delay):
 
 SCHEMES_.append(_)
 
+
 def _(timestamp, delay):
   delay /= 1.5
   
-  rgbs = devices.rgbs
+  rgbs = devices_.rgbs
   
-  for r in range(len(RAINBOW)):
-    sleep(timestamp)
+  for r in range(len(RAINBOW_)):
+    sleep_(timestamp)
     timestamp += delay
     for rgb in rgbs:
-      rgb.fill(RAINBOW[(r + rgbs.index(rgb) * len(RAINBOW) // len(rgbs)) % len(RAINBOW)])
+      rgb.fill(RAINBOW_[(r + rgbs.index(rgb) * len(RAINBOW_) // len(rgbs)) % len(RAINBOW_)])
     colors_.write()
 
   colors_.fill((0,0,0))
@@ -60,32 +61,33 @@ def _(timestamp, delay):
 
 SCHEMES_.append(_)
 
+
 def _(timestamp, delay):
   for i in range(15):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW[len(RAINBOW) * i // 15]
+    col = RAINBOW_[len(RAINBOW_) * i // 15]
     colors_.set(i, (i // 5) % 2, col)
     colors_.write()
     
   for i in range(13, 0, -1):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW[len(RAINBOW) * i // 15]
+    col = RAINBOW_[len(RAINBOW_) * i // 15]
     colors_.set(i, (i // 5 + 1) % 2, col)
     colors_.write()
 
   colors_.fill((0,0,0))
   return timestamp  
 
-
 SCHEMES_.append(_)
+
 
 def _(timestamp, delay):
   for i in range(15):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
     colors_.set(i, (i // 5) % 2, (10,0,0))
@@ -93,7 +95,7 @@ def _(timestamp, delay):
     colors_.write()
     
   for i in range(13, 0, -1):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
     colors_.set(i, (i // 5 + 1) % 2, (10,0,0))
@@ -102,40 +104,40 @@ def _(timestamp, delay):
 
   colors_.fill((0,0,0))
   return timestamp  
-
   
 SCHEMES_.append(_)
 
+
 def _(timestamp, delay):
   for i in range(15):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW[len(RAINBOW) * i // 15]
+    col = RAINBOW_[len(RAINBOW_) * i // 15]
     colors_.set(i, 0, col).set(i, 1, col)
     colors_.write()
 
   for i in range(13, 0, -1):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW[len(RAINBOW) * i // 15]
+    col = RAINBOW_[len(RAINBOW_) * i // 15]
     colors_.set(i, 0, col).set(i, 1, col)
     colors_.write()
 
   colors_.fill((0,0,0))
   return timestamp
-
   
 SCHEMES_.append(_)
+
 
 def _(timestamp, delay):
   for _ in range(2):
     for i in range(15):
-      sleep(timestamp)
+      sleep_(timestamp)
       timestamp += delay
       colors_.fill((0,0,0))
-      col = RAINBOW[len(RAINBOW) * i // 15]
+      col = RAINBOW_[len(RAINBOW_) * i // 15]
       colors_.set(i, 0, col).set(i, 1, col)
       colors_.set(14 - i, 0, col).set(14 - i, 1, col)
       colors_.write()
@@ -145,13 +147,14 @@ def _(timestamp, delay):
 
 SCHEMES_.append(_)
 
+
 def _(timestamp, delay):
   for _ in range(2):
     for i in range(15):
-      sleep(timestamp)
+      sleep_(timestamp)
       timestamp += delay
       colors_.fill((0,0,0))
-      col = RAINBOW[len(RAINBOW) * i // 15]
+      col = RAINBOW_[len(RAINBOW_) * i // 15]
       colors_.set(i, 0, col).set(i, 1, col)
       colors_.set(7 - i, 0, col).set(7 - i, 1, col)
       colors_.set(7 + i, 0, col).set(7 + i, 1, col)
@@ -160,20 +163,20 @@ def _(timestamp, delay):
     
   colors_.fill((0,0,0))
   return timestamp  
-  
 
 SCHEMES_.append(_)
 
+
 def _(timestamp, delay):
   for i in range(8):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
-    col = RAINBOW[len(RAINBOW) * (7 - i) // 8]
+    col = RAINBOW_[len(RAINBOW_) * (7 - i) // 8]
     colors_.set(i, 0, col).set(14 - i, 0, col).set(i, 1, col).set(14 - i, 1, col)
     colors_.write()
     
   for i in range(7, -1, -1):
-    sleep(timestamp)
+    sleep_(timestamp)
     timestamp += delay
     col = (0,0,0)
     colors_.set(i, 0, col).set(14 - i, 0, col).set(i, 1, col).set(14 - i, 1, col)

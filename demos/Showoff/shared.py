@@ -1,6 +1,7 @@
 import base64
 import zlib
-import ucuq # type: ignore
+
+import ucuq
 
 RGB_MAX_ = 10
 
@@ -38,3 +39,9 @@ def polyphonicPlay(voices, tempo, userObject, callback):
 #  ucuq.addCommand("__import__('gc').disable()")
   ucuq.polyphonicPlay(voices, tempo, userObject, callback)
 #  ucuq.addCommand("__import__('gc').enable()")
+
+def handleDevices(devices: str):
+  parts = devices.split()
+  if len(parts) == 1:
+    return parts[0]
+  return tuple(parts)
