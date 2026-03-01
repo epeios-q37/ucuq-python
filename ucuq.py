@@ -435,10 +435,10 @@ ATK_BODY_ = (
   """
 <style>
   .ucuq {
-  max-height: 200px;
-  overflow: hidden;
-  opacity: 1;
-  animation: ucuqFadeOut 2s forwards;
+    max-height: 200px;
+    overflow: hidden;
+    opacity: 1;
+    animation: ucuqFadeOut 2s forwards;
   }
 
   @keyframes ucuqFadeOut {
@@ -756,7 +756,9 @@ class Device(Device_):  # noqa: F821
     self.handledModules_ = []
     self.commands_ = [
 """
-__import__("gc").collect()
+import gc # To deport to 'Modules.xml'
+
+gc.collect()
 
 def sleepWait(start, us):
   elapsed = time.ticks_us() - start
@@ -1085,6 +1087,12 @@ class Nothing:
   def __bool__(self):
     return False
 
+  def __len__(self):
+    return 0
+  
+  def __getitem__(self, _):
+    return self
+
 
 # does absolutely nothing whichever method is called.
 # 'if Nothing()' returns 'False'.
@@ -1410,7 +1418,7 @@ class WS2812(Core_):
     self.fill((255, 255, 255)).write()
     self.getDevice().sleep(FLASH_DELAY_ if isinstance(extra, bool) else extra)
     return self.fill((0, 0, 0)).write()
-
+  
 
 class HT16K33(Core_):
   def __init__(self, i2c=None, addr=None, extra=True):
@@ -1734,6 +1742,9 @@ class HD44780_I2C(Multi_, Core_):
 
   def backlightOff(self):
     return self.backlightOn(False)
+  
+  def createChar(self, location, charmap):
+    return self.addMethods(f"custom_char({location},{charmap})")
 
   def flash(self, extra=True):
     self.backlightOn()
@@ -2276,7 +2287,7 @@ PP_NOTE_MAP_ = {
   'A': 0, 'A#': 1, 'Bb': 1, 'B': 2
 }  
   
-def ppNote2Midi_(noteStr, octave):
+def voicesNote2Midi_(noteStr, octave):
   if noteStr == 'R':
     return 0  # silence
   elif noteStr == '-':
@@ -2293,7 +2304,7 @@ def ppNote2Midi_(noteStr, octave):
   return 12 * (int(octave) + 2) + PP_NOTE_MAP_[noteKey]
 
 
-def ppDuration2Seconds_(duration, base, dots=0):
+def voicesDuration2Seconds_(duration, base, dots=0):
   value = 1 / (2 ** (4 - duration))
 
   total = value
@@ -2308,7 +2319,7 @@ def ppDuration2Seconds_(duration, base, dots=0):
   return base * total
 
 
-def ppParseNoteString_(note_str, base):
+def voicesParseNoteString_(note_str, base):
   match = re.match(r'([A-Z][b#]?)(\d)(\d)(\.*,?)', re.sub(r"\s+", "", note_str))
 
   if not match:
@@ -2322,14 +2333,14 @@ def ppParseNoteString_(note_str, base):
   else:
     note, octave, duration, dots = match.groups()
     
-  return buzzerConvert_(ppNote2Midi_(note, int(octave))), ppDuration2Seconds_(int(duration), base, len(dots) if len(dots) == 0 or dots[0] != ',' else -1),
+  return buzzerConvert_(voicesNote2Midi_(note, int(octave))), voicesDuration2Seconds_(int(duration), base, len(dots) if len(dots) == 0 or dots[0] != ',' else -1),
 
 
-def ppExtractNotes_(voice_str):
+def voicesExtractNotes_(voice_str):
   return re.findall(r'([A-Z\-][b#]?\d\d\.*,?|[R\-]\d\.*,?)', voice_str)
 
 
-def polyeventPlay(polyEvents, callback, helper = None):
+def playEvents(polyEvents, callback, helper = None):
   indexes = [0 for _ in polyEvents]
   notes = [0 for _ in polyEvents]
   delays = [0 for _ in polyEvents]
@@ -2356,32 +2367,36 @@ def polyeventPlay(polyEvents, callback, helper = None):
         delays[i] -= delay
         
         
-def polyPhonicToEvents(voices, tempo):
-  voiceNotes = [ppExtractNotes_(v) for v in voices]
+polyeventPlay = playEvents  # Deprecated        
+        
+
+def voicesToEvents(voices, tempo):
+  voiceNotes = [voicesExtractNotes_(v) for v in voices]
   
   raws = []
 
   for a in voiceNotes:
     raw = []
     for b in a:
-      raw.append(ppParseNoteString_(b, 60.0 / tempo))
+      raw.append(voicesParseNoteString_(b, 60.0 / tempo))
     raw.append((0, 0))
     raws.append(raw)
 
-  return raws  
+  return raws
+
+polyPhonicToEvents = voicesToEvents  # Deprecated !
 
 
-def polyphonicPlay(voices, tempo, userObject, callback):
-  polyeventPlay(polyPhonicToEvents(voices, tempo), callback, userObject)
+def playVoices(voices, tempo, userObject, callback):
+  playEvents(voicesToEvents(voices, tempo), callback, userObject)
         
-        
+
+polyphonicPlay = playVoices #Deprecated
+   
 ###### Begin of section high precision time handling based on NTP #####
 NTP_SCRIPT_ = """
 import socket
 import struct
-import time
-import machine
-import gc
 
 NTP_DELTA = 2208988800  # Différence entre epoch NTP (1900) et Unix (1970)
 
@@ -2791,10 +2806,39 @@ class Ravel:
     cls.LCD()
     cls.OLED()
     
-  class Ring(WS2812):
+  class WS2812_(WS2812):
+    def getJaugesString(self, max, placeholder="*"):
+      result = ""
+      
+      if len(placeholder) == 0:
+        placeholder = " "
+        
+      if len(placeholder) == 1:
+        placeholder = placeholder + " "
+        
+      if len(placeholder) == 2:
+        placeholder = placeholder.rjust(4, placeholder[0])
+        
+      if len(placeholder) == 3:
+        placeholder += " "
+        
+      amount = len(self.new_)
+        
+      for i in range(amount):
+        sub = ""
+        j = i if i < 4 else 11 - i
+        for k in range(len(self.new_[j])):
+          jauge = 8 * self.new_[j][k] // max
+          sub += placeholder[k] if jauge == 0 else chr(jauge - 1)
+        result += sub + ( ' ' if i in (3, 7) else placeholder[3]) 
+      
+      return result
+    
+    
+  class Ring(WS2812_):
     def __new__(cls, offset=0, device=None, extra=True):
       return super().__new__(KitsClassPatch_(cls, Ravel.Ring), 8, 20, offset=offset, device=device, extra=extra)
-      
+
   # class Buzzer(Buzzer):
   class Buzzer(globals()["Buzzer"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     def __new__(cls, device=None, extra=True):

@@ -1,4 +1,9 @@
-from shared import RAINBOW as RAINBOW_
+import ucuq
+
+import shared
+import show
+
+from shared import RAINBOW as RAINBOW_, RGB_MAX as RGB_MAX_
 from show import devices as devices_, sleep as sleep_
 
 W_SCHEMES = "ColorSchemes"
@@ -9,51 +14,95 @@ W_REPEAT_DISPLAY = "ColorRepeatDisplay"
 
 class Colors_:
   def set(self, x, y, col):
-    x = x % 15
-    index = x // 5
-    x = x % 5
-    devices_.rgbs[index].setValue((1 - y) * x + y * (8 - x) * (x != 0), col)
+    x = x % 12
+    index = x // 4
+    x = x % 4
+    devices_.rings[index].setValue(x if y == 0 else -x - 1, col)
     
     return self
     
   def fill(self, col):
-    devices_.rgbs.fill(col)
+    devices_.rings.fill(col)
 
     return self
     
   def write(self):
-    devices_.rgbs.write()
-
+    devices_.rings.write()
+    show.lcdDisplayRing()
+    
     return self
   
-SCHEMES_ = []  
+
+SCHEMES_ = []
 
 
+def oledRGB(oled,color):
+  return oled.fill(0)\
+    .rect(0, 63 - color[0] * 63 // RGB_MAX_, 42, 64, 1, True)\
+    .rect(43, 63 - color[1] * 63 // RGB_MAX_, 42, 64, 1, True)\
+    .rect(86, 63 - color[2] * 63 // RGB_MAX_, 42, 64, 1, True)
+
+# 1
 def _(timestamp, delay):
   delay /= 1.5
+  
+  # oleds = devices_.oleds  # Too slow, reintroduced when framebuffer implemented directly in ucuq.
+  oleds = ucuq.Nothing()
 
   for color in RAINBOW_:
     sleep_(timestamp)
     timestamp += delay
     colors_.fill(color)
     colors_.write()
+    oledRGB(oleds, color).show()
 
   colors_.fill((0,0,0))
+  oleds.fill(0).show()
   return timestamp  
 
 SCHEMES_.append(_)
 
-
+# 2
 def _(timestamp, delay):
   delay /= 1.5
   
-  rgbs = devices_.rgbs
+  rings = devices_.rings
+  # oleds = devices_.oleds  # Too slow, reintroduced when framebuffer implemented directly in ucuq.
+  oleds = ucuq.Nothing()
   
   for r in range(len(RAINBOW_)):
     sleep_(timestamp)
     timestamp += delay
-    for rgb in rgbs:
-      rgb.fill(RAINBOW_[(r + rgbs.index(rgb) * len(RAINBOW_) // len(rgbs)) % len(RAINBOW_)])
+    for i in range(len(rings)):
+      color = RAINBOW_[(r + i * len(RAINBOW_) // len(rings)) % len(RAINBOW_)]
+      rings[i].fill(color)
+      oledRGB(oleds[i], color)
+    colors_.write()
+    oleds.show()
+
+  colors_.fill((0,0,0))
+  oleds.fill(0).show()
+  
+  return timestamp  
+
+SCHEMES_.append(_)
+
+# 3
+def _(timestamp, delay):
+  for x in range(12):
+    sleep_(timestamp)
+    timestamp += delay
+    colors_.fill((0,0,0))
+    col = RAINBOW_[len(RAINBOW_) * x // 12]
+    colors_.set(x, (x // 4) % 2, col)
+    colors_.write()
+    
+  for x in range(11, -1, -1):
+    sleep_(timestamp)
+    timestamp += delay
+    colors_.fill((0,0,0))
+    col = RAINBOW_[len(RAINBOW_) * x // 12]
+    colors_.set(x, (x // 4 + 1) % 2, col)
     colors_.write()
 
   colors_.fill((0,0,0))
@@ -61,45 +110,22 @@ def _(timestamp, delay):
 
 SCHEMES_.append(_)
 
-
+# 4
 def _(timestamp, delay):
-  for i in range(15):
+  for i in range(12):
     sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW_[len(RAINBOW_) * i // 15]
-    colors_.set(i, (i // 5) % 2, col)
+    colors_.set(i, (i // 4) % 2, (10,0,0))
+    colors_.set((11 - i), ((11 - i) // 4 + 1) % 2, (0,0,10))
     colors_.write()
     
-  for i in range(13, 0, -1):
+  for i in range(11, -1, -1):
     sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW_[len(RAINBOW_) * i // 15]
-    colors_.set(i, (i // 5 + 1) % 2, col)
-    colors_.write()
-
-  colors_.fill((0,0,0))
-  return timestamp  
-
-SCHEMES_.append(_)
-
-
-def _(timestamp, delay):
-  for i in range(15):
-    sleep_(timestamp)
-    timestamp += delay
-    colors_.fill((0,0,0))
-    colors_.set(i, (i // 5) % 2, (10,0,0))
-    colors_.set((14 - i), ((14 - i) // 5 + 1) % 2, (0,0,10))
-    colors_.write()
-    
-  for i in range(13, 0, -1):
-    sleep_(timestamp)
-    timestamp += delay
-    colors_.fill((0,0,0))
-    colors_.set(i, (i // 5 + 1) % 2, (10,0,0))
-    colors_.set((14 - i), ((14 - i) // 5) % 2, (0,0,10))
+    colors_.set(i, (i // 4 + 1) % 2, (10,0,0))
+    colors_.set((11 - i), ((11 - i) // 4) % 2, (0,0,10))
     colors_.write()
 
   colors_.fill((0,0,0))
@@ -107,21 +133,21 @@ def _(timestamp, delay):
   
 SCHEMES_.append(_)
 
-
+# 5
 def _(timestamp, delay):
-  for i in range(15):
+  for i in range(12):
     sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW_[len(RAINBOW_) * i // 15]
+    col = RAINBOW_[len(RAINBOW_) * i // 12]
     colors_.set(i, 0, col).set(i, 1, col)
     colors_.write()
 
-  for i in range(13, 0, -1):
+  for i in range(10, -1, -1):
     sleep_(timestamp)
     timestamp += delay
     colors_.fill((0,0,0))
-    col = RAINBOW_[len(RAINBOW_) * i // 15]
+    col = RAINBOW_[len(RAINBOW_) * i // 12]
     colors_.set(i, 0, col).set(i, 1, col)
     colors_.write()
 
@@ -130,16 +156,16 @@ def _(timestamp, delay):
   
 SCHEMES_.append(_)
 
-
+# 6
 def _(timestamp, delay):
   for _ in range(2):
-    for i in range(15):
+    for i in range(12):
       sleep_(timestamp)
       timestamp += delay
       colors_.fill((0,0,0))
-      col = RAINBOW_[len(RAINBOW_) * i // 15]
+      col = RAINBOW_[len(RAINBOW_) * i // 12]
       colors_.set(i, 0, col).set(i, 1, col)
-      colors_.set(14 - i, 0, col).set(14 - i, 1, col)
+      colors_.set(11 - i, 0, col).set(11 - i, 1, col)
       colors_.write()
     
   colors_.fill((0,0,0))
@@ -147,18 +173,18 @@ def _(timestamp, delay):
 
 SCHEMES_.append(_)
 
-
+# 7
 def _(timestamp, delay):
   for _ in range(2):
-    for i in range(15):
+    for i in range(12):
       sleep_(timestamp)
       timestamp += delay
       colors_.fill((0,0,0))
-      col = RAINBOW_[len(RAINBOW_) * i // 15]
+      col = RAINBOW_[len(RAINBOW_) * i // 12]
       colors_.set(i, 0, col).set(i, 1, col)
-      colors_.set(7 - i, 0, col).set(7 - i, 1, col)
-      colors_.set(7 + i, 0, col).set(7 + i, 1, col)
-      colors_.set(14 - i, 0, col).set(14 - i, 1, col)
+      colors_.set(6 - i, 0, col).set(6 - i, 1, col)
+      colors_.set(6 + i, 0, col).set(6 + i, 1, col)
+      colors_.set(12 - i, 0, col).set(12 - i, 1, col)
       colors_.write()
     
   colors_.fill((0,0,0))
@@ -166,20 +192,20 @@ def _(timestamp, delay):
 
 SCHEMES_.append(_)
 
-
+# 8
 def _(timestamp, delay):
-  for i in range(8):
+  for i in range(6):
     sleep_(timestamp)
     timestamp += delay
-    col = RAINBOW_[len(RAINBOW_) * (7 - i) // 8]
-    colors_.set(i, 0, col).set(14 - i, 0, col).set(i, 1, col).set(14 - i, 1, col)
+    col = RAINBOW_[len(RAINBOW_) * (5 - i) // 6]
+    colors_.set(i, 0, col).set(11 - i, 0, col).set(i, 1, col).set(11 - i, 1, col)
     colors_.write()
     
-  for i in range(7, -1, -1):
+  for i in range(5, -1, -1):
     sleep_(timestamp)
     timestamp += delay
     col = (0,0,0)
-    colors_.set(i, 0, col).set(14 - i, 0, col).set(i, 1, col).set(14 - i, 1, col)
+    colors_.set(i, 0, col).set(11 - i, 0, col).set(i, 1, col).set(11 - i, 1, col)
     colors_.write()
     
   colors_.fill((0,0,0))
@@ -201,9 +227,10 @@ def update(dom):
   delay, repeat = dom.getValues((W_DELAY, W_REPEAT)).values()
   dom.setValues({W_DELAY_DISPLAY: float(delay), W_REPEAT_DISPLAY: int(repeat)})
 
-  
+
 def launch(scheme, timestamp, delay, repeat):
   timestamp += 1 
+  shared.lcdSetJaugeChars(devices_.lcds)
   
   if scheme == 0:
     for scheme in SCHEMES_:
@@ -214,6 +241,7 @@ def launch(scheme, timestamp, delay, repeat):
       timestamp = SCHEMES_[scheme-1](timestamp, delay)
     
   colors_.fill((0,0,0)).write()
+  devices_.lcds.clear().backlightOff()
   
   return timestamp
 

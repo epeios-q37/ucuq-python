@@ -26,19 +26,6 @@ def connect(device):
   lcd_ = ucuq.Ravel.LCD()
 
 
-SONG_ = """
-E44. F43
-G44 C55. -C54 R3 D44. E43
-F46 F44 R4 G44. A43
-B44 F55. -F54 R3 A44. B43
-C55 D55 E54 -E53 R3 E44. F43
-G44 C55. -C54 R3 D54. E53
-F56 R55 G44 -G42. R1 G43
-E55 D54 R3 G43 E55 D54 R3 G43
-E55 D54 R3 G43 F55 E54. D53
-C56
-"""
-
 LINE1_ = "Un smartphone"
 #        "1234567890123456"
 LINE2_ = "et c'est parti !"
@@ -82,12 +69,14 @@ def callback_(_, events, duration):
         buzzer_.off()
       elif event[1] > 0:
         buzzer_.on(event[1])
-    elif event[0] == 1:
+    elif False and event[0] == 1:
       if event[1][1] == "":
         lcd_.showCursor()
       lcd_.moveTo(*event[1][0]).putString(event[1][1])
     elif event[0] == 2:
       ring_.setValue(event[1][0], event[1][2]).setValue(event[1][1], event[1][2]).write()
+      
+    lcd_.moveTo(0,0).putString(ring_.getJaugesString(shared.RGB_MAX, '*'))
       
   if duration > .05:
     ucuq.commit()
@@ -111,9 +100,11 @@ def launch(withSound):
   ring_.flash()
   lcd_.clear().backlightOff()
   oled_.powerOff()
+  
+  shared.lcdSetJaugeChars(lcd_)
 
   if withSound:
-    polyEvents = ucuq.polyPhonicToEvents((SONG_,), 260)
+    polyEvents = ucuq.voicesToEvents(shared.INDY_VOICES, shared.INDY_TEMPO)
     duration = getDuration_(polyEvents[0])
   else:
     polyEvents = [[(0,0)]]
@@ -157,7 +148,7 @@ def launch(withSound):
 
   lcd_.backlightOn()
 
-  ucuq.polyeventPlay(polyEvents, callback_)
+  ucuq.playEvents(polyEvents, callback_)
   
   ucuq.setCommitBehavior(ucuq.CB_AUTO)
   
@@ -167,4 +158,6 @@ def launch(withSound):
     ring_.setValue(
       i, RAINBOW_[(ringOffset + i * (len(RAINBOW_) - 1) // 7) % len(RAINBOW_)]
     ).write()
+    
+  lcd_.moveTo(0,0).putString(ring_.getJaugesString(shared.RGB_MAX, '*'))
   

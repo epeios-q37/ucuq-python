@@ -42,21 +42,24 @@ def atkShowConnect(dom):
   show.connect(tuple(dom.getValues(("Device1", "Device2", "Device3")).values()))
   
   
-def atkShowSync(dom):
-  ucuq.ntpSetTime()
-  
-  
-def atkShowTest():
+def syncTest():
   timestamp = time.time() + 1
   
   show.sleep(timestamp)
   
-  show.devices.rgbs.flash()
+  show.devices.rings.flash()
   
   show.sleep(timestamp + 1)
   
-  show.devices.rgbs.flash()
+  show.devices.rings.flash()
   
+  
+def atkShowSync(dom):
+  ucuq.ntpSetTime()
+  syncTest()
+  
+def atkShowTest():
+  syncTest()  
   
 def atkShowIndy(dom):
   timestamp = show.countdownIfSelected(dom, time.time() + 1)
