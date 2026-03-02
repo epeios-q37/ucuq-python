@@ -48,6 +48,7 @@ def callback_(helper, events, duration):
       buzzer.on(int(freq))
       devices_.rings[turn].go = True
       devices_.oleds[turn].contrast(1)
+      devices_.lcds[turn].backlightOn()
       indexes_[turn] += 1
     elif freq == 0:
       buzzer.off()

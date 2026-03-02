@@ -30,14 +30,14 @@ def callback_(helper, events, duration):
     show.lcdDisplayRing()
     
 def launch(timestamp):
-  devices_.oleds.draw(INDY_, 128).show()
-  helper = types.SimpleNamespace(pantherPict = 0, led = 0)
-  
-  helper.start = helper.timestamp = timestamp + 1
-  helper.gcTimestamp = None
+  helper = types.SimpleNamespace(pantherPict = 0, led = 0,timestamp = timestamp + 1)
   
   shared.lcdSetJaugeChars(devices_.lcds)
   
+  sleep_(helper.timestamp)
+  devices_.oleds.draw(INDY_, 128).show()
+  devices_.lcds.backlightOn()
+
   shared.playVoices(shared.INDY_VOICES, shared.INDY_TEMPO, helper, callback_)
   
   devices_.lcds.clear()
