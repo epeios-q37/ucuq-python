@@ -255,7 +255,7 @@ def LCD():
   print_(LINE1_, 0, lcd)
   print_(LINE2_, 1, lcd)
   
-  ucuq.sleep(0.)
+  ucuq.sleep(0.5)
   
   wave2 = ""
   for i in range(8):
