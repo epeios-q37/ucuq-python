@@ -195,8 +195,6 @@ def OLED():
 
   for y in range(64):
     oled.draw(EYES_[y * 32:][:2048], 128).show()
-    # ucuq.sleep(0.005)
-  
   
 
 def Ring():
@@ -222,7 +220,7 @@ def Ring():
 
   ring.fill((0, 0, 0)).write()  
   
-LINE1_ = "Surfer vers".center(16)  
+LINE1_ = "Surfez vers".center(16)  
 #       "1234567890123456"
 LINE2_ = "le futur !".center(16)
 
