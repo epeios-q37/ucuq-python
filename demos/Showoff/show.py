@@ -7,23 +7,25 @@ import ucuq
 
 import shared
 
+from shared import RGB_MAX as RGB_MAX_, RAINBOW as RAINBOW_, getRainbowColor as getRainbowColor_
+
 W_COUNTDOWN_ = "Countdown"
 
 devices = types.SimpleNamespace()
 
-indexes = [random.randrange(len(shared.RAINBOW)) for i in range(3)]
+indexes = [random.randrange(len(RAINBOW_)) for i in range(3)]
 
 class Ring_(ucuq.Ravel.Ring):
   def setValue(self, index, color = None):
     if hasattr(self, "go") and not self.go:
       return self
     if hasattr(self, "turn") and color is None:
-      color = shared.RAINBOW[indexes[self.turn] % len(shared.RAINBOW)]
+      color = getRainbowColor_(indexes[self.turn])
     return super().setValue(index, color)
 
 
 def connect(deviceList):
-  ucuq.setDevice(tuple(shared.handleDevices(device) for device in deviceList))
+  ucuq.setDevice(tuple(shared.handleDeviceInput(device) for device in deviceList))
   
   ucuq.ntpSetTime()
   
@@ -96,7 +98,7 @@ def countdownIfSelected(dom, timestamp):
     return timestamp
   
   leds = [False] * 8
-  helper = types.SimpleNamespace(timestamp = timestamp + .5)
+  timestamp += .5
   
   allEvents = []
   
@@ -105,9 +107,16 @@ def countdownIfSelected(dom, timestamp):
   lcdEvents = []
   
   for i in range(5, 0, -1):
-    oledEvents.append((i, 1))
+    oledEvents.append((
+      lambda digit=i:
+        devices.oleds.draw(DIGITS_[digit], 8, 48, 0, mul=9).show(),
+      1))
     for c in range(2, 10):
-      ringEvents.append(((c,(1,1,1) if leds[c % 8] else (0,0,0) ), 1/8))
+      ringEvents.append((
+        lambda
+          led=c,
+          color=(1,1,1) if leds[c % 8] else (0,0,0):
+            devices.rings.setValue(led, color).write(), 1/8))
       leds[c%8] = not leds[c%8]
       
 
@@ -115,33 +124,42 @@ def countdownIfSelected(dom, timestamp):
 
   for j in range(16):
     jauge = ((j,) + jauge)[:16]
-    lcdEvents.append((jauge, 5/48))
+    lcdEvents.append((
+      lambda jauge = jauge:
+        devices.lcds.moveTo(0,0).putJauges(0, jauge),
+      5/48))
 
   for j in range(15, -1, -1):
     jauge = ((j,) + jauge)[:16]
-    lcdEvents.append((jauge, 5/48))
+    lcdEvents.append((
+      lambda jauge = jauge:
+        devices.lcds.moveTo(0,0).putJauges(0, jauge),
+      5/48))
       
   for j in range(16):
     jauge = ((0,) + jauge)[:16]
-    lcdEvents.append((jauge, 5/48))
+    lcdEvents.append((
+      lambda jauge = jauge:
+        devices.lcds.moveTo(0,0).putJauges(0, jauge),
+      5/48))
 
 
   allEvents += (ringEvents,)
   allEvents += (lcdEvents,)
   allEvents += (oledEvents,)
   
-  sleepUntil(helper.timestamp)
+  sleepUntil(timestamp)
   devices.rings.flash()
   devices.rings.fill((1,1,1)).write()
   devices.lcds.backlightOn()
-  ucuq.playEvents(allEvents, countdownCallback_, helper)
+  timestamp += ucuq.playEvents(allEvents, lambda _, cumul: sleepUntil(timestamp + cumul))
   devices.oleds.fill(0).show()
   devices.rings.fill((0,0,0)).write()
   devices.lcds.clear().backlightOff()
   
   ucuq.gcCollect()
   
-  return helper.timestamp + 1
+  return timestamp + 1
 
 
 def unpack(data):
@@ -152,5 +170,34 @@ def lcdDisplayRing():
   for i in range(len(devices.rings)):
     ring = devices.rings[i]
     if not hasattr(ring, "go") or ring.go:
-      devices.lcds[i].displayRing(ring, (shared.RGB_MAX))
+      devices.lcds[i].displayRing(ring, (RGB_MAX_))
+  
+
+def turnOffAndScrollDown(timestamp):
+  offset = random.randrange(len(RAINBOW_))
+  
+  for i in range(offset, 8 + offset):
+    devices.rings.setValue(i, getRainbowColor_(i, 7))
+    
+  devices.rings.write()
+  
+  for i in range(64):
+    devices.rings.setValue(i // 8 + offset, (0,0,0)).write()
+    devices.oleds.scroll(0, 1).show()
+    devices.lcds.displayRing(devices.rings[0], RGB_MAX_)
+    timestamp += 0.07
+    sleepUntil(timestamp) 
+    
+  return timestamp
+    
+  
+def flood(timestamp):
+  jauges = (0,) * 16 + tuple(15 - abs(i) for i in range(-15, 16))
+    
+  for i in range(len(jauges)):
+    sleepUntil(timestamp)
+    devices.lcds.putJauges(0, jauges[len(jauges) - i - 1:][:16], True)
+    timestamp += 0.1
+    
+  return timestamp
 

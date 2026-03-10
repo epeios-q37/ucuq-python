@@ -4,7 +4,7 @@ import ucuq
 
 import shared
 
-from shared import RAINBOW as RAINBOW_
+from shared import RAINBOW as RAINBOW_, getRainbowColor as getRainbowColor_
 
 ring_ = None
 buzzer_ = None
@@ -14,7 +14,7 @@ lcd_ = None
 
 def connect(device):
   global ring_, buzzer_, oled_, lcd_
-  ucuq.setDevice(shared.handleDevices(device))
+  ucuq.setDevice(shared.handleDeviceInput(device))
 
   ring_ = ucuq.Ravel.Ring()
   buzzer_ = ucuq.Ravel.Buzzer()
@@ -62,32 +62,6 @@ def lcdsDisplayRings(lcdsAndRings):
     lcdAndRing[0].displayRing(lcdAndRing[1], shared.RGB_MAX)
 
 
-
-def callback_(events, duration, lcdsAndRings):
-  ucuq.sleepStart()
-  
-  for event in events:
-    if event[0] == 0:
-      
-      if event[1] == 0:
-        buzzer_.off()
-      elif event[1] > 0:
-        buzzer_.on(event[1])
-    elif False and event[0] == 1:
-      if event[1][1] == "":
-        lcd_.showCursor()
-      lcd_.moveTo(*event[1][0]).putString(event[1][1])
-    elif event[0] == 2:
-      ring_.setValue(event[1][0], event[1][2]).setValue(event[1][1], event[1][2]).write()
-      
-  lcdsDisplayRings(lcdsAndRings)
-      
-  if duration > .05:
-    ucuq.commit()
-
-  ucuq.sleepWait(duration)
-  
-
 def oledAnimation_():
   oled_.powerOn()
   for c in range(64):
@@ -99,50 +73,41 @@ def oledAnimation_():
     oled_.draw(toDraw, 128)
     oled_.show()
     
+
 def indy(withSound = True):
-  ringOffset = int(time.time()) % len(RAINBOW_)
+  ringOffset = int(time.time())
   ring_.flash()
   lcd_.clear().backlightOff()
   oled_.powerOff()
   
   if withSound:
-    polyEvents = ucuq.voicesToEvents(shared.INDY_VOICES, shared.INDY_TEMPO)
+    polyEvents = ucuq.voicesToEvents(shared.INDY_VOICES, shared.INDY_TEMPO, lambda freq: buzzer_.off() if freq == 0 else buzzer_.on(freq) if freq > 0 else None)
     duration = getDuration_(polyEvents[0])
   else:
-    polyEvents = [[(0,0)]]
+    polyEvents = [[(lambda: buzzer_.off(),0)]]
     duration = 5
-  
-  line1 = 15 * " " + LINE1_.center(16)
-  line2 = 15 * " " + LINE2_.center(16)
-  
-  lcdEvents = []
-  
-  for i in range(64):
-    if i // 16 == 0:
-      event = ((0,0), line1[i % 16 :][:16])
-    elif i // 16 == 1:
-      event = ((0,1), line2[i % 16 :][:16])
-    elif withSound and i // 16 == 2:
-      event = ((i %16 ,0), "")
-    elif withSound and i // 16 == 3:
-      event = ((i % 16,1), "")
-
-    if withSound or i < 32:
-      lcdEvents.append((event, duration / ( 32 * ( 1 + withSound))))
-      
-  polyEvents.append(lcdEvents)
   
   ringEvents = []
   
   ringCount = 200 if withSound else 50
 
+  lcdsAndRings = []
+  
+  if isinstance(lcd_, ucuq.Multi ):
+    for lcd, ring in zip(lcd_, ring_):
+      lcdsAndRings.append((lcd, ring))  
+  else:
+    lcdsAndRings.append((lcd_, ring_))    
+
   for c in range(ringCount):
-    ringEvent = (c, ringCount - c, RAINBOW_[(c + ringOffset) % len(RAINBOW_)])
-    ringEvents.append((ringEvent, duration / ringCount))
+    ringEvents.append((
+      lambda c=c, color=getRainbowColor_(c + ringOffset), ringCount=ringCount:
+        (ring_.setValue(c, color).setValue(ringCount - c, color).write(), lcdsDisplayRings(lcdsAndRings)),
+      duration / ringCount))
   
   polyEvents.append(ringEvents)
 
-  ringOffset = int(time.time()) % len(RAINBOW_)
+  ringOffset = int(time.time())
       
   oledAnimation_()
   
@@ -150,41 +115,29 @@ def indy(withSound = True):
 
   lcd_.backlightOn()
   
-  lcdsAndRings = []
-  
-  if isinstance(lcd_, ucuq.Multi ):
-    for lcd, ring in zip(lcd_, ring_):
-      lcdsAndRings.append((lcd, ring))  
-  else:
-    lcdsAndRings.append((lcd_, ring_))      
+  ucuq.sleepStart()  
 
-  ucuq.playEvents(polyEvents, callback_, lcdsAndRings)
+  ucuq.playEvents(polyEvents, lambda duration: (ucuq.sleepWait(duration), ucuq.sleepStart(),  ucuq.commit() if duration > .05 else None))
   
   ucuq.setCommitBehavior(commitBehavior)
   
   lcd_.hideCursor()
   
   for i in range(8):
-    ring_.setValue(
-      i, RAINBOW_[(ringOffset + i * (len(RAINBOW_) - 1) // 7) % len(RAINBOW_)]
-    ).write()
-    
+    ring_.setValue(i, getRainbowColor_(ringOffset + i, 7)).write()
     
   lcdsDisplayRings(lcdsAndRings)
   
   return True
+
   
 BUZZER_VOICE = "C44 D43 E43 F43 G43 A43 B43 C55"
   
-def buzzerCallback_(events, duration, buzzer):
-  for event in events:
-    buzzer.on(event[1])
-    
-  ucuq.sleep(duration)
-  
 
 def Buzzer():
-  ucuq.playVoices((BUZZER_VOICE,), 170, buzzerCallback_, ucuq.Ravel.Buzzer())
+  buzzer = ucuq.Ravel.Buzzer()
+  ucuq.playVoices((BUZZER_VOICE,), 170, lambda freq: buzzer.on(freq), lambda duration: ucuq.sleep(duration))
+  
   
 EYES_ = "0" * 32 * 64 + shared.unpack("""eJztUkG2wyAIvBLGRPQ4UeH+R/hjrETbLrr8i8yrqTIIOKD64ME/hvzg4yt/uGWBqWpf7bywk1EYa2W1Sme5/TkVojiuvFDcjk/bcaULCx2bRbxchXSe5/Dd5K9T35Obao+zqWC3YZ3GJ9Szg+4hJYJ28U4gguNO5RXxLCDx2+7iCYZ6huHvkcJHZyJE8EcxSUtGjU5oKJDPI1JIdSSEetJ4ex5xoYPr8JcE3pd95As4kKZkBdfGi1i8gAqTbqY4dCaWOhQKHnxWb/XiJnG1FkdYSOUWvDDHqclILA6vMofsWnfDCNiE8C3KFECXIckt5zwQ19utQQL/+Xqrh5dRZtJpHsY+mGEdtm9YBz7nd57fDQ8efOIPyTYK6w==""")
   
@@ -206,12 +159,12 @@ def Ring():
 
   for i in range(count):
     for led in range(8):
-      ring[led] = RAINBOW_[(i * 8 + led) % len(RAINBOW_)]
+      ring[led] = getRainbowColor_(i * 8 + led)
       ring.write()
       ucuq.sleep(delay)
 
   for led in range(8):
-    ring[led] = RAINBOW_[led * len(RAINBOW_) // 8]
+    ring[led] = getRainbowColor_(led, 7)
     ring.write()
     ucuq.sleep(delay)
 
@@ -224,15 +177,7 @@ LINE1_ = "Surfez vers".center(16)
 #       "1234567890123456"
 LINE2_ = "le futur !".center(16)
 
-def print_(text, y, lcd):
-  lcd.moveTo(0,y).showCursor()
-
-  for i in range(16):
-    lcd.putString(text[i][:1])
-    if i == 15:
-      lcd.hideCursor()
-    ucuq.sleep(DELAY_TEXT_)
-    
+  
 def fusion_espaces(s1: str, s2: str) -> str:
     i = 0
     while i < len(s2) and s2[i] == ' ':
@@ -252,8 +197,7 @@ def LCD():
   
   lcd.uploadJaugeChars()
   
-  print_(LINE1_, 0, lcd)
-  print_(LINE2_, 1, lcd)
+  lcd.showCursor().ttyWrite(LINE1_ + LINE2_, DELAY_TEXT_)
   
   ucuq.sleep(0.5)
   

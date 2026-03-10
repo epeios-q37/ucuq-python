@@ -1,63 +1,55 @@
-import random
 import types
+
+import ucuq
 
 import shared
 import show
 
-from shared import RAINBOW as RAINBOW_
+from shared import getRainbowColor as getRainbowColor_
 from show import devices as devices_, sleepUntil as sleepUntil_
 
-def callback_(events, duration, helper):
-  sleepUntil_(helper.timestamp)
-
-  helper.timestamp += duration
-  
-  for event in events:
-    if event[1] !=-1:
+def eventCallback_(freq, helper):
+    if freq !=-1:
       devices_.buzzers.off()
-      if event[1] != 0:
-        devices_.buzzers.on(event[1])
+      if freq != 0:
+        devices_.buzzers.on(freq)
         helper.led += 1    
         
-  devices_.rings.setValue(helper.led, RAINBOW_[helper.led % len(RAINBOW_)]).write()
+
+def durationCallback_(timestamp, helper):
+  devices_.rings.setValue(helper.led, getRainbowColor_(helper.led)).write()
   devices_.rings.setValue(helper.led + 1,(0,0,0)).write()
   
-  if (helper.timestamp - helper.start) > PANTHER_DELAY_ * helper.pantherPict:
+  if (timestamp - helper.start) > PANTHER_DELAY_ * helper.pantherPict:
     devices_.oleds.fill(0).show()
     devices_.oleds.draw(shared.unpack(PANTHERS_[helper.pantherPict % len(PANTHERS_)]), 128).show()
     helper.pantherPict += 1
     
   show.lcdDisplayRing()
+  
+  sleepUntil_(timestamp)
 
 
 def launch(timestamp):
   helper = types.SimpleNamespace(pantherPict = 0, led = -1)
   
-  helper.start = helper.timestamp = timestamp + 1
-  helper.gcTimestamp = None
+  helper.start = timestamp = timestamp + 1
   
-  sleepUntil_(helper.timestamp)
+  sleepUntil_(timestamp)
   
   devices_.lcds.backlightOn()
 
-  shared.playVoices(VOICES_, 120, callback_, helper)
+  timestamp += ucuq.playVoices(VOICES_, 120, lambda freq: eventCallback_(freq, helper), lambda _, cumul: durationCallback_(timestamp + cumul, helper))
   
-  devices_.lcds.clear()
-
-  TEXT = " " * 14 + "That's all folks!" + " " * 16
-
-  for i in range(64):
-    devices_.rings.setValue(((helper.led + (i // 8)) % 8),(0,0,0)).write()
-    devices_.oleds.scroll(0, 1).show()
-    devices_.lcds.moveTo(0,0).putString(TEXT[i//2:i//2+16])
-    helper.timestamp += 0.07
-    sleepUntil_(helper.timestamp)
-
+  timestamp = show.turnOffAndScrollDown(timestamp + .5)
+  
   devices_.oleds.fill(0).show()
-  devices_.lcds.backlightOff()
-  devices_.rings.fill((0, 0, 0)).write()
+
+  # helper.timestamp = show.flood(helper.timestamp + .5)
   
-  return helper.timestamp
+  devices_.lcds.clear().backlightOff()
+  
+  return timestamp
 
 
 PANTHERS_ = (
