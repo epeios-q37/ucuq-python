@@ -1613,9 +1613,9 @@ class Buzzer(Multi_):
     if freq == 0:
       self.off()
     elif self.on_:
-        self.pwm_.setFreq(freq)
+        self.pwm_.setFreq(int(freq))
     else:
-        self.pwm_.setFreq(freq).setU16(self.u16_)
+        self.pwm_.setFreq(int(freq)).setU16(self.u16_)
         self.on_ = True
 
     return self
@@ -1625,6 +1625,9 @@ class Buzzer(Multi_):
       return self.off()
     else:
       return self.on(buzzerConvert_(note))
+    
+  def getDevice(self):
+    return self.pwm_.getDevice()
 
 
 class PCA9685(Core_):
