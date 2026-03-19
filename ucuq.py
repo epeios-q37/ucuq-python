@@ -764,11 +764,16 @@ class Device(Device_):  # noqa: F821
     if isinstance(id, str):
       id = "" if not id.strip() else (id[0] if len(id := id.split()) == 1 else tuple(id))
 
+    if isinstance(token, str):
+      token = "" if not token.strip() else (token[0] if len(token := token.split()) == 1 else tuple(token))
+
     if type(id) in (list, tuple):
       ids = id
       
       if type(token) not in (list, tuple):
         tokens = (token,) * len(ids)
+      else:
+        tokens = token
         
       if len(tokens) != len(ids):
         raise Exception("'ids' and 'tokens' must be of same amount!")
