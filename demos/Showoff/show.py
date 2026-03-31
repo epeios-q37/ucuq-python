@@ -37,11 +37,19 @@ def connect(deviceList):
   
   devices.lcds.uploadGaugeChars()
 
+prevLocalTimeStamp_ = 0
+  
   
 def sleepUntil(timestamp):
+  global prevLocalTimeStamp_
+  
+  if timestamp - prevLocalTimeStamp_ > 0.66:
+    prevLocalTimeStamp_ = timestamp
+    ucuq.commit()
+
   ucuq.ntpSleepUntil(timestamp)
-  
-  
+
+
 DIGITS_ = (
   "708898A8C88870",
   "20602020202070",
@@ -96,7 +104,7 @@ def countdownIfSelected(dom, timestamp):
   for i in range(5, 0, -1):
     oledEvents.append((
       lambda digit=i:
-        (devices.oleds.draw(DIGITS_[digit], 8, 48, 0, mul=9).show(),ucuq.commit()),
+        devices.oleds.draw(DIGITS_[digit], 8, 48, 0, mul=9).show(),
       1))
     for c in range(2, 10):
       ringEvents.append((
@@ -172,7 +180,7 @@ def turnOffAndScrollDown(timestamp):
     devices.rings.setValue(i // 8 + offset, (0,0,0)).write()
     devices.oleds.scroll(0, 1).show()
     devices.ravel.displayRingGauges(RGB_MAX_)
-    timestamp += 0.07
+    timestamp += 0.09
     sleepUntil(timestamp) 
     
   return timestamp

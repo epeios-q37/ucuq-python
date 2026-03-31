@@ -41,12 +41,10 @@ def launch(timestamp):
 
   timestamp += ucuq.playVoices(VOICES_, 120, lambda freq: eventCallback_(freq, helper), lambda _, cumul: durationCallback_(timestamp + cumul, helper))
   
-  timestamp = show.turnOffAndScrollDown(timestamp + .5)
+  timestamp = show.turnOffAndScrollDown(timestamp)
   
   devices_.oleds.fill(0).show()
 
-  # helper.timestamp = show.flood(helper.timestamp + .5)
-  
   devices_.lcds.clear().backlightOff()
   
   return timestamp

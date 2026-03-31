@@ -105,7 +105,7 @@ def indy(withSound = True):
       
   oledAnimation_()
   
-  commitBehavior = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
+  cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
 
   lcd_.backlightOn()
   
@@ -113,7 +113,7 @@ def indy(withSound = True):
 
   ucuq.playEvents(polyEvents, lambda duration: (ucuq.sleepWait(duration), ucuq.sleepStart(),  ucuq.commit() if duration > .05 else None))
   
-  ucuq.setCommitBehavior(commitBehavior)
+  ucuq.setCommitBehavior(cb)
   
   lcd_.hideCursor()
   

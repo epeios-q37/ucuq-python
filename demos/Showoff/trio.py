@@ -36,7 +36,6 @@ def callback_(freq, turn, prev):
     ucuq.getDevice()[turn].sleep(0.015)
   else:
     prev[turn] = freq
-    ucuq.getDevice()[turn].commit()
 
   if freq > 0:
     buzzer.on(int(freq))

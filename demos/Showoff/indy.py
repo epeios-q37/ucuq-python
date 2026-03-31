@@ -37,11 +37,9 @@ def launch(timestamp):
   
   devices_.oleds.hline(0, 0, 128, 0)
   
-  timestamp = show.turnOffAndScrollDown(timestamp + .5)
+  timestamp = show.turnOffAndScrollDown(timestamp)
   
   devices_.oleds.fill(0).show()
-
-  # helper.timestamp = show.flood(helper.timestamp + .5)
 
   devices_.lcds.backlightOff().clear()
   

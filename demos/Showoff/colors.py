@@ -3,9 +3,7 @@ import ucuq
 import show
 
 from shared import RAINBOW as RAINBOW_, RGB_MAX as RGB_MAX_, getRainbowColor as getRainbowColor_
-from show import devices as devices_
-
-prevLocalTimeStamp_ = 0
+from show import devices as devices_, sleepUntil as sleepUntil_
 
 W_SCHEMES = "ColorSchemes"
 W_DELAY = "ColorDelay"
@@ -33,15 +31,6 @@ class Colors_:
     
     return self
   
-
-def sleepUntil_(timestamp):
-  global prevLocalTimeStamp_
-  show.sleepUntil(timestamp)
-  
-  if timestamp - prevLocalTimeStamp_ > 0.66:
-    prevLocalTimeStamp_ = timestamp
-    ucuq.commit()
-
 
 def oledRGB_(oled,color):
   return oled.fill(0)\
