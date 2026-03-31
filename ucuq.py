@@ -331,7 +331,6 @@ def getKits():
 
 import atlastk
 import base64
-import collections
 import copy
 import inspect
 import json
@@ -573,8 +572,8 @@ defaultCommitBehavior_ = CB_AUTO
 
 
 def testCommit_(commit, behavior=None):
-  if commit == None:
-    if behavior == None:
+  if commit is None:
+    if behavior is None:
       behavior = defaultCommitBehavior_
 
     return behavior == CB_AUTO
@@ -2329,9 +2328,9 @@ def rbShadeFade(variant, i, max):
 def setCommitBehavior(behavior):
   global defaultCommitBehavior_
   
-  oldCommeitBehavior = defaultCommitBehavior_
+  oldCommitBehavior = defaultCommitBehavior_
   defaultCommitBehavior_ = behavior
-  return oldCommeitBehavior
+  return oldCommitBehavior
   
   
 def getCommitBehavior():

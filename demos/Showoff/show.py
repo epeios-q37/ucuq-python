@@ -78,20 +78,6 @@ def countdownIfSelected_(dom, timestamp):
   return timestamp
 
 
-def countdownCallback_(events, duration, helper):
-  for event in events:
-    if event[0] == 2:
-      devices.oleds.draw(DIGITS_[event[1]], 8, 48, 0, mul=9).show()
-    elif event[0] == 0:
-      devices.rings.setValue(event[1][0], event[1][1]).write()
-    elif event[0] == 1:
-      devices.lcds.moveTo(0,0).putGauges(0, event[1])
-      
-  helper.timestamp += duration
-      
-  sleepUntil(helper.timestamp)
-
-
 def countdownIfSelected(dom, timestamp):
   ucuq.gcCollect()
   
@@ -110,7 +96,7 @@ def countdownIfSelected(dom, timestamp):
   for i in range(5, 0, -1):
     oledEvents.append((
       lambda digit=i:
-        devices.oleds.draw(DIGITS_[digit], 8, 48, 0, mul=9).show(),
+        (devices.oleds.draw(DIGITS_[digit], 8, 48, 0, mul=9).show(),ucuq.commit()),
       1))
     for c in range(2, 10):
       ringEvents.append((
@@ -149,6 +135,8 @@ def countdownIfSelected(dom, timestamp):
   allEvents += (lcdEvents,)
   allEvents += (oledEvents,)
   
+  cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
+  
   sleepUntil(timestamp)
   devices.rings.flash()
   devices.rings.fill((1,1,1)).write()
@@ -157,6 +145,8 @@ def countdownIfSelected(dom, timestamp):
   devices.oleds.fill(0).show()
   devices.rings.fill((0,0,0)).write()
   devices.lcds.clear().backlightOff()
+  
+  ucuq.setCommitBehavior(cb)
   
   ucuq.gcCollect()
   
