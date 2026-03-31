@@ -25,7 +25,7 @@ def durationCallback_(timestamp, helper):
     devices_.oleds.draw(shared.unpack(PANTHERS_[helper.pantherPict % len(PANTHERS_)]), 128).show()
     helper.pantherPict += 1
     
-  show.lcdDisplayRing()
+  show.displayRingGauges()
   
   sleepUntil_(timestamp)
 

@@ -59,7 +59,7 @@ def callback_(freq, turn, prev):
 def updateRings():
   devices_.rings.setValue(5).setValue(6).write()
   
-  show.lcdDisplayRing()
+  show.displayRingGauges()
 
 def init_():
   for index, ring in enumerate(devices_.rings):

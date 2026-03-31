@@ -19,7 +19,7 @@ def callback_(freq, helper):
       helper.prev = freq
       devices_.rings.setValue(helper.led, getRainbowColor_(helper.led)).write()
       devices_.rings.setValue(helper.led + 1,(0,0,0)).write()
-      show.lcdDisplayRing()
+      show.displayRingGauges()
       helper.led += 1    
   
       
