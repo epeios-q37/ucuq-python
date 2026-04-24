@@ -49,11 +49,15 @@ def getNTPTime_(host="pool.ntp.org"):
 
   return ntp_time
 
+
+ntpOffset_ = 0
   
 def connect(deviceList):
-  offset = time.time() - getNTPTime_()
+  global ntpOffset_
   
-  print(f"Décalage horaire : {offset} s.")
+  ntpOffset_ = time.time() - getNTPTime_()
+  
+  print(f"Décalage horaire : {ntpOffset_} s.")
   
   ucuq.setDevice(tuple(shared.handleDeviceInput(device) for device in deviceList))
   
@@ -67,7 +71,7 @@ def connect(deviceList):
   
   devices.lcds.uploadGaugeChars()
   
-  return offset
+  return ntpOffset_
 
 prevLocalTimeStamp_ = 0
   
@@ -79,7 +83,7 @@ def sleepUntil(timestamp):
     prevLocalTimeStamp_ = timestamp
     ucuq.commit()
 
-  ucuq.ntpSleepUntil(timestamp)
+  ucuq.ntpSleepUntil(timestamp - ntpOffset_)
 
 
 DIGITS_ = (
