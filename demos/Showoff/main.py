@@ -82,8 +82,11 @@ def atkPartnerIndy(dom):
 
 
 def atkShowConnect(dom):
-  show.connect(tuple(dom.getValues(("ShowLeftDevice", "ShowMiddleDevice", "ShowRightDevice")).values()))
+  offset = show.connect(tuple(dom.getValues(("ShowLeftDevice", "ShowMiddleDevice", "ShowRightDevice")).values()))
   dom.executeVoid("toggleFieldsetByLegend('Show', true)")
+  
+  if abs(offset) >= .9:
+    dom.alert(f"Décalage horaire : {offset} s !")
 
 
 def syncTest():
