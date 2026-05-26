@@ -454,14 +454,15 @@ def ucuqGetInfos():
 """
 
 KIT_WOKWI_WS2812_PATCH_SCRIPT_ = f"""
-from machine import UART
-
 try:
-  UART(0)  # Sur Wokwi, UART0 existe toujours
+  with open("diagram.json") as f:
+    content = f.read()
+  assert '"editor"' in content
+  assert '"editor": "wokwi"' in content
   CONV_ = {tuple((int(255 * math.log(1+i) / math.log(32)) for i in range(32)))}
   def c_(color):
     return (CONV_[min(color[0],31)], CONV_[min(color[1],31)], CONV_[min(color[2],31)])
-except:
+except (OSError, AssertionError):
   def c_(color):
     return color
 """
@@ -2923,11 +2924,14 @@ class Kit_:
     def deepMax_(x):
       return x if not isinstance(x,(list,tuple,set)) else max((Kit_.HD44780_I2C.deepMax_(i) for i in x), default=None)
 
+    # - globalMax == -1: same max for all gauges.
+    # - globalMax == 0: each gauge has its own max. 
     def displayRingGauges(self, ring, x, y, size, globalMax = False, placeholder=".", addendum="  "):
       result = ""
       pixels = ring.getAll()
       
-      maxValue = self.deepMax_(pixels)
+      if globalMax == -1:
+        maxValue = self.deepMax_(pixels)
         
       if len(placeholder) == 0:
         placeholder = " "
@@ -2943,11 +2947,17 @@ class Kit_:
         
       for i in range(len(pixels)):
         sub = ""
+        
         j = i if i < 4 else 11 - i
-        if not globalMax:
+        
+        if globalMax == 0:
           maxValue = max(pixels[j])
+        elif globalMax !=-1:
+          maxValue = globalMax
+          
         if maxValue == 0:
           maxValue = 1
+          
         for k in range(len(pixels[j])):
           gauge = 8 * pixels[j][k] // maxValue
           if gauge == 0 and pixels[j][k] != 0:
@@ -2999,27 +3009,6 @@ class Ravel:
     def __new__(cls, offset=0, device=None, extra=True):
       return super().__new__(KitsClassPatch_(cls, Ravel.Ring), 8, 20, offset=offset, device=device, extra=extra)
     
-  class Ring_(Core_):
-    def __new__(cls, offset=0, device=None, extra=True):
-      return super().__new__(cls)
-  
-    def __init__(self, offset=0, device=None, extra=True):
-      super().__init__(device=device)
-      super().addCommand(WOKWI_RING_KIT_PATCH_SCRIPT_)
-      self.ring_ = Kit_.WS2812(8, 20, offset=offset, extra=extra)
-      
-    def fill(self, *args, **kwargs):
-      self.ring_.fill(*args, **kwargs)
-      return self
-      
-    def setValue(self, *args, **kwargs):
-      self.ring_.setValue(*args, **kwargs)
-      return self
-      
-    def write(self):
-      self.ring_.write(lambda color: f"(c_({color}))")
-      return self
-    
   class OLED(Kit_.SSD1306_I2C):
     def __new__(cls, device=None, extra=True):
       return super().__new__(KitsClassPatch_(cls, Ravel.OLED), 128, 64, I2C(8, 9, device=device), extra=extra)
@@ -3057,7 +3046,7 @@ class Ravel:
   def lcd(self):
     return self.lcd_
   
-  def displayRingGauges(self, globalMax = False, placeholder=".", addendum="  "):
+  def displayRingGauges(self, globalMax = 0, placeholder=".", addendum="  "):
     ravelDisplayRingGauges_(Kit_.ensureSequence_(self.ring_), Kit_.ensureSequence_(self.lcd_), globalMax, placeholder, addendum)
 
 ##### End of section dedicated to the Ravel kit #####
