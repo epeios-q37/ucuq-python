@@ -188,7 +188,7 @@ BUZZER_VOICE = "C44 D43 E43 F43 G43 A43 B43 C55"
 
 
 def Buzzer():
-  buzzer = ucuq.Ravel.Buzzer()
+  buzzer = ucuq.ravel.Buzzer()
   ucuq.playVoices(
     (BUZZER_VOICE,),
     170,
@@ -210,7 +210,7 @@ def OLED():
 
 
 def Ring():
-  ring = ucuq.Ravel.Ring()
+  ring = ucuq.ravel.Ring()
 
   count = len(RAINBOW_) // 8
 
@@ -314,7 +314,7 @@ DELAY_WAVE_ = 0.1
 
 
 def LCD():
-  lcd = ucuq.Ravel.LCD().backlightOn().showCursor().moveTo(0, 0)
+  lcd = ucuq.ravel.LCD().backlightOn().showCursor().moveTo(0, 0)
 
   lcd.uploadGaugeChars()
 
