@@ -1988,8 +1988,6 @@ class OLED_(Core_):
   def ellipse(self, x, y, rx, ry, col, fill=False, quad=15):
     return self.addMethods(f"ellipse({x},{y},{rx},{ry},{col},{fill},{quad})")
   
-  switch = True
-
   def draw(self, pattern, width, ox=0, oy=0, mul=1, compress=True):
     if width % 4:
       raise Exception("'width' must be a multiple of 4!")
