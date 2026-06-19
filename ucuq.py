@@ -1630,6 +1630,13 @@ class Buzzer(Multi_):
     
     return self
   
+  def ratio(self, ratio):
+    prevRatio = self.u16_ / 65535
+    self.u16_ = int(65535 * ratio)
+    self.on_ = False
+    
+    return prevRatio
+    
   def PWM(self):
     return self.pwm_
     
@@ -2897,7 +2904,8 @@ class kit_: # Act as namespace.
       return self
     
   class Buzzer(globals()["Buzzer"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
-    pass    
+    pass
+      
 
   class HD44780_I2C(globals()["HD44780_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     def uploadGaugeChars(self):

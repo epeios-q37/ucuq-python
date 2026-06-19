@@ -4,6 +4,7 @@ import time
 import ucuq
 
 import cube
+import matrix
 import oled
 import shared
 
@@ -198,8 +199,12 @@ def Buzzer():
   buzzer_.off()
 
 
-def OLED():
-  oled.launch(oled_)
+def OLED(field):
+  oled.launch(oled_, field)
+  
+  
+def matrixSimulation():
+  matrix.launch(oled_, buzzer_, ring_, lcd_)
 
 
 def Ring():
