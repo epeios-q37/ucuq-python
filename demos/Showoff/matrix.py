@@ -44,12 +44,18 @@ DURATION_ = 15
 def buildBuzzer(buzzer):
   coeff = 2 ** (1/12)
   delay = 1/4
+  previousFreq = None
   
   elapsed = 0
   events = []
   
   while elapsed <= DURATION_:
-    events.append((lambda: buzzer.on(150 * coeff ** random.randrange(18)), delay))
+    while True:
+      freq = 150 * coeff ** random.randrange(18)
+      if freq != previousFreq:
+        break
+    previousFreq = freq
+    events.append((lambda freq = freq: buzzer.on(freq), delay))
     elapsed += delay
     
   return events
@@ -73,7 +79,7 @@ def buildRing(ring):
   elapsed = 0
   delay = 1/8
   step = 1
-  limit = 16
+  limit = 20
   current = 0
   events = []
   rotation = 0
@@ -86,7 +92,7 @@ def buildRing(ring):
       
     rotation += .2
       
-    events.append((lambda green = current, rotation = int(rotation): ring.fill((0, 0, 0)).setValue(rotation, (0,green,0)).setValue(rotation + 4, (0,green,0)).write(), delay))
+    events.append((lambda green = current, rotation = int(rotation): ring.fill((0, green, 0)).setValue(rotation, (0,0,31)).setValue(rotation + 4, (10,0,0)).write(), delay))
     elapsed += delay
     
     current += step
@@ -94,28 +100,23 @@ def buildRing(ring):
   return events
 
 
-def setChars(lcd):
+def setChars(lcd, chars):
   str = ""
   
   for _ in range(16):
-    str += chr(random.randrange(8))
+    str += chars[random.randrange(len(chars))]
 
   lcd.moveTo(0,1).putString(str)
 
 
 def buildLCD1(lcd):
-  charmap = [0] * 8
-  events = []
+  chars = tuple(chr(a) for a in range(ord('A'), ord('Z'))) + tuple(chr(a) for a in range(ord('a'), ord('z'))) + tuple(chr(a) for a in range(ord('0'), ord('9')))
   elapsed = 0
-  delay = 1 / 10
-  
-  for i in range(8):
-    for l in range(8):
-      charmap[l] = random.randrange(32)
-    lcd.createChar(i, charmap)
+  events = []
+  delay = 1 / 4
   
   while elapsed <= DURATION_:
-    events.append((lambda: setChars(lcd), delay))
+    events.append((lambda: setChars(lcd, chars), delay))
     elapsed += delay
     
   return events
@@ -123,7 +124,7 @@ def buildLCD1(lcd):
 
 def buildLCD2(lcd):
   elapsed = 0
-  delay = 1/3
+  delay = 2/3
   events = []
   decoding = "DECODING...".rjust(16)
   
@@ -136,23 +137,37 @@ def buildLCD2(lcd):
     elapsed += delay
     
   return events
-    
+
+def buildCommit():
+  elapsed = 0
+  events = []
+  delay = .2
+  
+  while elapsed < DURATION_:
+    events.append((lambda: ucuq.commit(), delay))
+    elapsed += delay
+  
+  return events  
 
 def launch(oled, buzzer, ring, lcd):
   oled.invert(True)
   lcd.backlightOn()
   
-  allEvents = ((buildBuzzer(buzzer), buildOLED(oled), buildRing(ring), buildLCD1(lcd), buildLCD2(lcd)))
+  allEvents = ((buildBuzzer(buzzer), buildOLED(oled), buildRing(ring), buildLCD1(lcd), buildLCD2(lcd), buildCommit()))
   
   ratioBackup = buzzer.ratio(.99)
+  
+  cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
   
   ucuq.sleepStart()
   
   ucuq.playEvents(allEvents, lambda _, cumul: ucuq.sleepWait(cumul))
+  
+  ucuq.setCommitBehavior(cb)
 
   buzzer.off().ratio(ratioBackup)
 
   oled.invert(False).fill(0).show()
   ring.fill((0,0,0,)).write()
-  lcd.backlightOff().clear().uploadGaugeChars()
+  lcd.backlightOff().clear()
   
