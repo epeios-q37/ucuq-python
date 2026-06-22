@@ -39,7 +39,7 @@ def modem_tone():
     delai_ms = random.randint(150, 300)
     return freq, delai_ms
   
-DURATION_ = 15
+DURATION_ = 20
 
 def buildBuzzer(buzzer):
   coeff = 2 ** (1/12)
@@ -77,9 +77,9 @@ def buildOLED(oled):
 
 def buildRing(ring):
   elapsed = 0
-  delay = 1/8
+  delay = 1/5
   step = 1
-  limit = 20
+  limit = 15
   current = 0
   events = []
   rotation = 0
@@ -100,48 +100,40 @@ def buildRing(ring):
   return events
 
 
-def setChars(lcd, chars):
-  str = ""
-  
-  for _ in range(16):
-    str += chars[random.randrange(len(chars))]
-
-  lcd.moveTo(0,1).putString(str)
+def getGaugeChar(gauge):
+  return chr(32 if gauge == 0 else (min(gauge, 7) - 1))
 
 
-def buildLCD1(lcd):
-  chars = tuple(chr(a) for a in range(ord('A'), ord('Z'))) + tuple(chr(a) for a in range(ord('a'), ord('z'))) + tuple(chr(a) for a in range(ord('0'), ord('9')))
+def buildLCD(lcd):
+  delay = 1 / 7
+  ups = [random.randrange(2, 16)] * 16
+  downs = [random.randrange(1, limit) for limit in ups]
+  levels = [random.randrange(downs[i], ups[i] + 1) for i in range(16)]
+  coeffs = [-1 if random.randrange(2) else 1 for _ in range(16)]
   elapsed = 0
   events = []
-  delay = 1 / 4
   
   while elapsed <= DURATION_:
-    events.append((lambda: setChars(lcd, chars), delay))
+    events.append((lambda levels = levels.copy(): lcd.putGauges(0, levels), delay))
+    
+    for i in range(len(levels)):
+      levels[i] += coeffs[i]
+      if coeffs[i] == 1 and levels[i] >= ups[i]:
+        coeffs[i] = -1
+        ups[i] = random.randrange(downs[i] + 1, 17)
+      elif coeffs[i] == -1 and levels[i] <= downs[i]:
+        coeffs[i] = 1
+        downs[i] = random.randrange(0, ups[i])
+      
     elapsed += delay
     
   return events
 
-
-def buildLCD2(lcd):
-  elapsed = 0
-  delay = 2/3
-  events = []
-  decoding = "DECODING...".rjust(16)
-  
-  position = 0
-  
-  while elapsed <= DURATION_:
-    events.append((lambda position = position % 16: lcd.moveTo(0,0).putString(decoding[position:] + decoding[:position]), delay))
-    
-    position += 1
-    elapsed += delay
-    
-  return events
 
 def buildCommit():
   elapsed = 0
   events = []
-  delay = .2
+  delay = .3
   
   while elapsed < DURATION_:
     events.append((lambda: ucuq.commit(), delay))
@@ -153,9 +145,15 @@ def launch(oled, buzzer, ring, lcd):
   oled.invert(True)
   lcd.backlightOn()
   
-  allEvents = ((buildBuzzer(buzzer), buildOLED(oled), buildRing(ring), buildLCD1(lcd), buildLCD2(lcd), buildCommit()))
+  allEvents = [
+    buildBuzzer(buzzer),
+    buildOLED(oled),
+    buildRing(ring),
+    buildLCD(lcd),
+    buildCommit()
+  ]
   
-  ratioBackup = buzzer.ratio(.99)
+  ratioBackup = buzzer.ratio(.992)
   
   cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
   

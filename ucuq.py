@@ -2917,15 +2917,16 @@ class kit_: # Act as namespace.
         
       return self
         
-    def getGaugeChar_(self, gauge):
-      return chr(32 if gauge == 0 else (min(gauge, 7) - 1))
+    @staticmethod
+    def getGaugeChar_(gauge):
+      return " " if gauge == 0 else chr(min(gauge, 8) - 1)
         
     def putGauges(self, position, gauges, strip = False):
       up = ""
       down = ""
       for gauge in gauges:
-        up += self.getGaugeChar_( 0 if gauge < 8 else gauge - 8)
-        down += self.getGaugeChar_(8 if gauge >= 8 else gauge)
+        up += self.getGaugeChar_(max(gauge - 8, 0))
+        down += self.getGaugeChar_(min(gauge, 8))
         
       if not strip and position == 0 and len(gauges) == 16:
         self.moveTo(0,0).putString(up + down)
