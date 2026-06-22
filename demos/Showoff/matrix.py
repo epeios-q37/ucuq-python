@@ -65,7 +65,7 @@ def buildOLED(oled):
   elapsed = 0
   events = []
   counter = 0
-  delay = 1/10
+  delay = 1/8
 
   while elapsed <= DURATION_:
     events.append((lambda animation = animation_[counter % len(animation_)]: oled.draw(animation, 128).show(), delay))
@@ -133,7 +133,7 @@ def buildLCD(lcd):
 def buildCommit():
   elapsed = 0
   events = []
-  delay = .3
+  delay = .35
   
   while elapsed < DURATION_:
     events.append((lambda: ucuq.commit(), delay))
