@@ -178,6 +178,8 @@ def updateDuties(dom, params = None):
 
 def initPWM(inputs):
   global pwm
+  
+  print(inputs[W_PIN])
 
   if inputs[W_MODE] == M_STRAIGHT:
     pwm = ucuq.PWM(inputs[W_PIN], freq=50, u16=0).setNS(0)
