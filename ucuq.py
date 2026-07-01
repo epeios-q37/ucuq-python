@@ -1548,7 +1548,6 @@ class PWM(Core_):
       self.init(pin, freq=freq, u16=u16, ns=ns, device=device, extra=extra)
 
   def init(self, pin, *, freq=None, u16=None, ns=None, device=None, extra=True):
-    print(pin)
     self.pin_ = pin
     command = f"machine.PWM(machine.Pin({pin}, machine.Pin.OUT){getParam_('freq', freq)}{getParam_('duty_u16', u16)}{getParam_('duty_ns', ns)})"
     super().init("PWM-1", command, device, extra, before=f"{command}.deinit()")
@@ -3029,8 +3028,8 @@ class Ravel:
     self.ring_ = cls.init_(ring, lambda : ravel.Ring(ringOffset, device, extra))
     self.oled_ = cls.init_(oled, lambda : ravel.OLED(device, extra))
     self.lcd_ = cls.init_(lcd, lambda : ravel.LCD(device, extra))
-    self.upper_ =  cls.init_(lcd, lambda : ravel.Upper(device, extra))
-    self.lower_ =  cls.init_(lcd, lambda : ravel.Lower(device, extra))
+#    self.upper_ =  cls.init_(lcd, lambda : ravel.Upper(device, extra))
+#    self.lower_ =  cls.init_(lcd, lambda : ravel.Lower(device, extra))
     
   def raz(self):
     self.__init__(self.ring_.getOffset())
@@ -3046,13 +3045,13 @@ class Ravel:
   
   def lcd(self):
     return self.lcd_
-  
+  """
   def upper(self):
     return self.upper_
   
   def lower(self):
     return self.lower_
-  
+  """
   def displayRingGauges(self, globalMax = 0, placeholder=".", addendum="  "):
     ravelDisplayRingGauges_(kit_.ensureSequence_(self.ring_), kit_.ensureSequence_(self.lcd_), globalMax, placeholder, addendum)
 
@@ -3064,7 +3063,7 @@ class ravel:  # act as namespace
       
   class Ring(kit_.WS2812):
     def __new__(cls, offset=0, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.Ring), 8, 21, offset=offset, device=device, extra=extra)
+      return super().__new__(KitsClassPatch_(cls, ravel.Ring), 8, 20, offset=offset, device=device, extra=extra)
     
   class OLED(kit_.SSD1306_I2C):
     def __new__(cls, device=None, extra=True):
@@ -3073,15 +3072,15 @@ class ravel:  # act as namespace
   class LCD(kit_.HD44780_I2C):
     def __new__(cls, device=None, extra=True):
       return super().__new__(KitsClassPatch_(cls, ravel.LCD), 16, 2, SoftI2C(6, 7, device=device), extra=extra)
-  
+  """  
   class Upper(kit_.Servo180):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.Upper), specs = Servo.Specs(1638, 8192, 180), pwm=PWM(0, freq=50, ns = 0, device=device), extra=extra)
+      return super().__new__(KitsClassPatch_(cls, ravel.Upper), Servo.Specs(1638, 8192, 180), PWM(0, freq=50, ns = 0, device=device), extra=extra)
   
   class Lower(kit_.Servo180):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.Upper), specs = Servo.Specs(1638, 8192, 180), pwm=PWM(1, freq=50, ns = 0, device=device), extra=extra)
-  
+      return super().__new__(KitsClassPatch_(cls, ravel.Upper), Servo.Specs(1638, 8192, 180), PWM(1, freq=50, ns = 0, device=device), extra=extra)
+  """  
   def raz():
     Ravel()
 
