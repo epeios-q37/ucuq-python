@@ -90,6 +90,10 @@ def atkPartnerLCD(dom):
   partner.LCD()
 
 
+def atkPartnerServos(dom):
+  partner.Servos()
+
+
 def atkPartnerListen(dom):
   partner.Listen(dom)
 

@@ -52,6 +52,8 @@ def getBuzzerEvents_(buzzer):
     events.append((lambda freq = freq: buzzer.on(freq), delay))
     elapsed += delay
     
+  events.append((lambda: buzzer.off(), 0))
+
   return events
 
 
@@ -65,6 +67,8 @@ def getOLEDEvents_(oled):
     events.append((lambda animation = animation_[counter % len(animation_)]: oled.draw(animation, 128).show(), delay))
     elapsed += delay
     counter += 1
+
+  events.append((lambda: oled.fill(1).show(), 0))
   
   return events
 
@@ -90,6 +94,10 @@ def getRingEvents_(ring):
     elapsed += delay
     
     current += step
+    
+  events.append((lambda: ring.fill((0, 0, 0)).write(), 0))
+  elapsed += delay
+    
     
   return events
 
@@ -117,13 +125,48 @@ def getLCDEvents_(lcd):
       
     elapsed += delay
     
+  events.append((lambda: lcd.backlightOff().clear(), 0))
+    
+  return events
+
+LIMIT = 6554
+DELTA = 2000
+
+def getServosEvents_(upper, lower):
+  delay = 1 / 6
+  ups = [LIMIT, random.randrange(1, DELTA)]
+  downs = [random.randrange(LIMIT-DELTA, LIMIT), 0]
+  levels = [LIMIT,0]
+  coeffs = [-40,40]
+  elapsed = 0
+  events = []
+  
+  while elapsed <= DURATION_:
+    events.append((lambda levels = levels.copy(): (upper.setU16(levels[0]+1638), lower.setU16(levels[1]+1638)), delay))
+    
+    for i in range(len(levels)):
+      levels[i] += coeffs[i]
+      if coeffs[i] > 0 and levels[i] >= ups[i]:
+        coeffs[i] = -coeffs[i]
+        ups[i] = max(min(random.randrange(levels[i] - DELTA // 2, levels[i] + DELTA // 2), LIMIT), downs[i] + 1)
+      elif coeffs[i] < 0 and levels[i] <= downs[i]:
+        coeffs[i] = -coeffs[i]
+        downs[i] = min(max(random.randrange(levels[i] - DELTA // 2, levels[i] + DELTA // 2), 0), ups[i] - 1)
+      
+    elapsed += delay
+    
+  while levels != [LIMIT,0]:
+    levels[0] = min(levels[0] + 100, LIMIT)
+    levels[1] = max(levels[1] - 100, 0)
+    events.append((lambda levels = levels.copy(): (upper.setU16(levels[0]+1638), lower.setU16(levels[1]+1638)), 1/5))
+    
   return events
 
 
 def getCommitEvents_():
   elapsed = 0
   events = []
-  delay = .35
+  delay = .30
   
   while elapsed < DURATION_:
     events.append((lambda: ucuq.commit(), delay))
@@ -131,7 +174,7 @@ def getCommitEvents_():
   
   return events  
 
-def launch(oled, buzzer, ring, lcd):
+def launch(oled, buzzer, ring, lcd, upper, lower):
   oled.invert(True)
   lcd.backlightOn()
   
@@ -140,6 +183,7 @@ def launch(oled, buzzer, ring, lcd):
     getOLEDEvents_(oled),
     getRingEvents_(ring),
     getLCDEvents_(lcd),
+    getServosEvents_(upper, lower),
     getCommitEvents_()
   ]
   

@@ -1829,6 +1829,7 @@ class HD44780_I2C(Multi_, Core_):
 
 
 class Servo(Core_):
+  param_ = (1, 'pwm')
   class Specs:
     def __init__(self, u16_min, u16_max, range):
       self.min = u16_min
@@ -1898,6 +1899,8 @@ class Servo(Core_):
       u16 = self.domain.max
     elif u16 < self.domain.min:
       u16 = self.domain.min
+      
+    print(angle, u16)
 
     return int(u16)
 
@@ -1921,6 +1924,10 @@ class Servo(Core_):
 
   def setAngle(self, angle):
     return self.pwm.setU16(self.angleToDuty(angle))
+  
+  def setU16(self, u16):
+    print(u16)
+    return self.pwm.setU16(u16)
 
 def hexImageToBytearray_(hex_string, width=128, height=64):
   bits = []
@@ -2906,7 +2913,6 @@ class kit_: # Act as namespace.
   class Buzzer(globals()["Buzzer"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     pass
       
-
   class HD44780_I2C(globals()["HD44780_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     def uploadGaugeChars(self):
       charmap = [0b00000] * 8
@@ -2933,6 +2939,7 @@ class kit_: # Act as namespace.
       else:
         self.moveTo(position,0).putString(up.rstrip() if len(up.rstrip()) != 0 else " " * 16)
         self.moveTo(position,1).putString(down.rstrip() if len(down.rstrip()) != 0 else " " * 16)
+        
         
     @staticmethod
     def deepMax_(x):
@@ -3002,10 +3009,13 @@ class kit_: # Act as namespace.
     pass
   
   class Servo180(globals()["Servo"]):  # Workaround to Brython issue 
-    pass
+    def __init__(self, pin, rest, device = None, extra = True):
+      pwm = PWM(pin, freq=50, device=device, extra=extra)
+      super().__init__(pwm, Servo.Specs(1638, 8192, 180))
+      pwm.setU16(rest)
 
 
-def KitsClassPatch_(caller, owner):
+def BaseClassPatch_(caller, owner):
 #  return caller if caller != owner else owner.__base__
   return caller if caller != owner else owner.__bases__[0] # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2663'.
 
@@ -3022,14 +3032,14 @@ class Ravel:
   def init_(object, instanciation):
     return object if object is not None else instanciation()
     
-  def __init__(self, ringOffset=0, device=None, extra=True, *, buzzer=None, ring=None, oled=None, lcd=None):
+  def __init__(self, ringOffset=0, device=None, extra=True, *, buzzer=None, ring=None, oled=None, lcd=None, upper=None, lower=None):
     cls = self.__class__
     self.buzzer_ = cls.init_(buzzer, lambda : ravel.Buzzer(device, extra))
     self.ring_ = cls.init_(ring, lambda : ravel.Ring(ringOffset, device, extra))
     self.oled_ = cls.init_(oled, lambda : ravel.OLED(device, extra))
     self.lcd_ = cls.init_(lcd, lambda : ravel.LCD(device, extra))
-#    self.upper_ =  cls.init_(lcd, lambda : ravel.Upper(device, extra))
-#    self.lower_ =  cls.init_(lcd, lambda : ravel.Lower(device, extra))
+    self.upper_ =  cls.init_(upper, lambda : ravel.Upper(device, extra))
+    self.lower_ =  cls.init_(lower, lambda : ravel.Lower(device, extra))
     
   def raz(self):
     self.__init__(self.ring_.getOffset())
@@ -3045,13 +3055,13 @@ class Ravel:
   
   def lcd(self):
     return self.lcd_
-  """
+
   def upper(self):
     return self.upper_
   
   def lower(self):
     return self.lower_
-  """
+
   def displayRingGauges(self, globalMax = 0, placeholder=".", addendum="  "):
     ravelDisplayRingGauges_(kit_.ensureSequence_(self.ring_), kit_.ensureSequence_(self.lcd_), globalMax, placeholder, addendum)
 
@@ -3059,28 +3069,34 @@ class Ravel:
 class ravel:  # act as namespace
   class Buzzer(kit_.Buzzer):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.Buzzer), PWM(5, device=device), extra=extra)
+      return super().__new__(BaseClassPatch_(cls, ravel.Buzzer), PWM(5, device=device), extra=extra)
       
   class Ring(kit_.WS2812):
     def __new__(cls, offset=0, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.Ring), 8, 20, offset=offset, device=device, extra=extra)
+      return super().__new__(BaseClassPatch_(cls, ravel.Ring), 8, 20, offset=offset, device=device, extra=extra)
     
   class OLED(kit_.SSD1306_I2C):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.OLED), 128, 64, I2C(10, 9, device=device), extra=extra)
+      return super().__new__(BaseClassPatch_(cls, ravel.OLED), 128, 64, I2C(10, 9, device=device), extra=extra)
       
   class LCD(kit_.HD44780_I2C):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.LCD), 16, 2, SoftI2C(6, 7, device=device), extra=extra)
-  """  
+      return super().__new__(BaseClassPatch_(cls, ravel.LCD), 16, 2, SoftI2C(6, 7, device=device), extra=extra)
+    
   class Upper(kit_.Servo180):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.Upper), Servo.Specs(1638, 8192, 180), PWM(0, freq=50, ns = 0, device=device), extra=extra)
+      return super().__new__(cls, device, extra)
+  
+    def __init__(self, device=None, extra=True):
+      return super().__init__(0, 8192, device, extra)
   
   class Lower(kit_.Servo180):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(KitsClassPatch_(cls, ravel.Upper), Servo.Specs(1638, 8192, 180), PWM(1, freq=50, ns = 0, device=device), extra=extra)
-  """  
+      return super().__new__(cls, device, extra)
+
+    def __init__(self, device=None, extra=True):
+      return super().__init__(1, 1638, device, extra)
+    
   def raz():
     Ravel()
 
