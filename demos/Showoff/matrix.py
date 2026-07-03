@@ -129,36 +129,36 @@ def getLCDEvents_(lcd):
     
   return events
 
-LIMIT = 6554
-DELTA = 2000
+LIMIT_ = ucuq.ravel.SERVO_MAX
+DELTA_ = LIMIT_ // 3
 
 def getServosEvents_(upper, lower):
   delay = 1 / 6
-  ups = [LIMIT, random.randrange(1, DELTA)]
-  downs = [random.randrange(LIMIT-DELTA, LIMIT), 0]
-  levels = [LIMIT,0]
+  ups = [LIMIT_// 2, random.randrange(1, DELTA_)]
+  downs = [random.randrange(LIMIT_-DELTA_, LIMIT_), LIMIT_ // 2]
+  levels = [LIMIT_ // 2, LIMIT_ // 2]
   coeffs = [-40,40]
   elapsed = 0
   events = []
   
   while elapsed <= DURATION_:
-    events.append((lambda levels = levels.copy(): (upper.setU16(levels[0]+1638), lower.setU16(levels[1]+1638)), delay))
+    events.append((lambda levels = levels.copy(): (upper.set(levels[0]), lower.set(levels[1])), delay))
     
     for i in range(len(levels)):
       levels[i] += coeffs[i]
       if coeffs[i] > 0 and levels[i] >= ups[i]:
         coeffs[i] = -coeffs[i]
-        ups[i] = max(min(random.randrange(levels[i] - DELTA // 2, levels[i] + DELTA // 2), LIMIT), downs[i] + 1)
+        ups[i] = max(min(random.randrange(levels[i] - DELTA_ // 2, levels[i] + DELTA_ // 2), LIMIT_), downs[i] + 1)
       elif coeffs[i] < 0 and levels[i] <= downs[i]:
         coeffs[i] = -coeffs[i]
-        downs[i] = min(max(random.randrange(levels[i] - DELTA // 2, levels[i] + DELTA // 2), 0), ups[i] - 1)
+        downs[i] = min(max(random.randrange(levels[i] - DELTA_ // 2, levels[i] + DELTA_ // 2), 0), ups[i] - 1)
       
     elapsed += delay
     
-  while levels != [LIMIT,0]:
-    levels[0] = min(levels[0] + 100, LIMIT)
-    levels[1] = max(levels[1] - 100, 0)
-    events.append((lambda levels = levels.copy(): (upper.setU16(levels[0]+1638), lower.setU16(levels[1]+1638)), 1/5))
+  while False and levels != [LIMIT_,0]:
+    levels[0] = min(levels[0] + 300, LIMIT_)
+    levels[1] = max(levels[1] - 300, 0)
+    events.append((lambda levels = levels.copy(): (upper.set(levels[0]), lower.set(levels[1])), 1/15))
     
   return events
 
@@ -175,6 +175,8 @@ def getCommitEvents_():
   return events  
 
 def launch(oled, buzzer, ring, lcd, upper, lower):
+  upper.set(ucuq.ravel.SERVO_MAX // 2)
+  lower.set(ucuq.ravel.SERVO_MAX // 2)
   oled.invert(True)
   lcd.backlightOn()
   
@@ -204,4 +206,7 @@ def launch(oled, buzzer, ring, lcd, upper, lower):
   oled.invert(False).fill(0).show()
   ring.fill((0,0,0,)).write()
   lcd.backlightOff().clear()
+  
+  upper.park()
+  lower.park()
   

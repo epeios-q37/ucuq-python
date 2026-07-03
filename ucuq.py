@@ -1860,6 +1860,9 @@ class Servo(Core_):
     super().__init__()
 
     self.test_(specs, tweak, domain)
+    
+    self.pwm_ = None
+    self.u16_ = None
 
     if pwm:
       self.init(pwm, specs, tweak=tweak, domain=domain)
@@ -1875,59 +1878,88 @@ class Servo(Core_):
     if not domain:
       domain = self.Domain(specs.min, specs.max)
 
-    self.specs = specs
-    self.tweak = tweak
-    self.domain = domain
+    self.specs_ = specs
+    self.tweak_ = tweak
+    self.domain_ = domain
 
-    self.pwm = pwm
+    self.pwm_ = pwm
+    self.u16_ = 0
 
     self.reset()
 
-  def angleToDuty(self, angle):
-    if self.tweak.invert:
+  def angleToDuty_(self, angle):
+    if self.tweak_.invert:
       angle = -angle
 
     u16 = (
-      self.specs.min
-      + (angle + self.tweak.angle)
-      * (self.specs.max - self.specs.min)
-      / self.specs.range
-      + self.tweak.offset
+      self.specs_.min
+      + (angle + self.tweak_.angle)
+      * (self.specs_.max - self.specs_.min)
+      / self.specs_.range
+      + self.tweak_.offset
     )
 
-    if u16 > self.domain.max:
-      u16 = self.domain.max
-    elif u16 < self.domain.min:
-      u16 = self.domain.min
+    if u16 > self.domain_.max:
+      u16 = self.domain_.max
+    elif u16 < self.domain_.min:
+      u16 = self.domain_.min
       
-    print(angle, u16)
-
     return int(u16)
 
-  def dutyToAngle(self, duty):
+  def dutyToAngle_(self, duty):
     angle = (
-      self.specs.range
-      * (duty - self.tweak.offset - self.specs.min)
-      / (self.specs.mas - self.specs.min)
+      self.specs_.range
+      * (duty - self.tweak_.offset - self.specs_.min)
+      / (self.specs_.mas - self.specs_.min)
     )
 
-    if self.tweak.invert:
+    if self.tweak_.invert:
       angle = -angle
 
-    return angle - self.tweak.angle
+    return angle - self.tweak_.angle
 
   def reset(self):
-    self.setAngle(0)
+    self.setAngleRough(0)
 
   def getAngle(self):
-    return self.dutyToAngle(self.pwm.getU16())
-
-  def setAngle(self, angle):
-    return self.pwm.setU16(self.angleToDuty(angle))
+    return self.dutyToAngle_(self.pwm_.getU16())
+  
+  def setU16Straight_(self, u16):
+    return self.pwm_.setU16(u16)
+    
+  def setU16Rough(self, u16):
+    self.u16_ = min(max(u16, self.specs_.min), self.specs_.max)
+    return self.setU16Straight_(u16)
+  
+  def getU16(self):
+    return self.u16_
   
   def setU16(self, u16):
-    print(u16)
-    return self.pwm.setU16(u16)
+    step = 40
+    
+    while self.u16_ < u16:
+      self.setU16Rough(min(self.u16_ + step, u16))
+      
+    while self.u16_ > u16:
+      self.setU16Rough(max(self.u16_ - step, u16))
+      
+    return self
+  
+  def setAngleRough(self, angle):
+    return self.setU16Rough(self.angleToDuty_(angle))
+  
+  def setAngle(self, angle):
+    return self.setU16(self.angleToDuty_(angle))
+  
+  def setRough(self, value):
+    return self.setU16(value + self.specs_.min)
+  
+  def set(self, value):
+    return self.setU16(value + self.specs_.min)
+
+  def get(self):
+    return self.u16_ - self.specs_.min
+  
 
 def hexImageToBytearray_(hex_string, width=128, height=64):
   bits = []
@@ -3010,8 +3042,7 @@ class kit_: # Act as namespace.
   
   class Servo180(globals()["Servo"]):  # Workaround to Brython issue 
     def __init__(self, pin, rest, device = None, extra = True):
-      pwm = PWM(pin, freq=50, device=device, extra=extra)
-      super().__init__(pwm, Servo.Specs(1638, 8192, 180))
+      super().__init__(pwm := PWM(pin, freq=50, device=device, extra=extra), Servo.Specs(1638, 8192, 180))
       pwm.setU16(rest)
 
 
@@ -3064,6 +3095,22 @@ class Ravel:
 
   def displayRingGauges(self, globalMax = 0, placeholder=".", addendum="  "):
     ravelDisplayRingGauges_(kit_.ensureSequence_(self.ring_), kit_.ensureSequence_(self.lcd_), globalMax, placeholder, addendum)
+    
+    
+class ravel_:  # act as namespace
+  class Upper(kit_.Servo180):
+    def __init__(self, device=None, extra=True):
+      return super().__init__(0, 8192, device, extra)
+    
+    def park(self):
+      self.set(ravel.SERVO_MAX)
+  
+  class Lower(kit_.Servo180):
+    def __init__(self, device=None, extra=True):
+      return super().__init__(1, 1638, device, extra)
+    
+    def park(self):
+      self.set(0)
 
 
 class ravel:  # act as namespace
@@ -3083,21 +3130,18 @@ class ravel:  # act as namespace
     def __new__(cls, device=None, extra=True):
       return super().__new__(BaseClassPatch_(cls, ravel.LCD), 16, 2, SoftI2C(6, 7, device=device), extra=extra)
     
-  class Upper(kit_.Servo180):
+  class Upper(ravel_.Upper):
     def __new__(cls, device=None, extra=True):
-      return super().__new__(cls, device, extra)
-  
-    def __init__(self, device=None, extra=True):
-      return super().__init__(0, 8192, device, extra)
-  
-  class Lower(kit_.Servo180):
-    def __new__(cls, device=None, extra=True):
-      return super().__new__(cls, device, extra)
-
-    def __init__(self, device=None, extra=True):
-      return super().__init__(1, 1638, device, extra)
+      return super().__new__(BaseClassPatch_(cls, ravel.Upper), device=device, extra=extra)
     
+  class Lower(ravel_.Lower):
+    def __new__(cls, device=None, extra=True):
+      return super().__new__(BaseClassPatch_(cls, ravel.Lower), device=device, extra=extra)
+    
+
   def raz():
     Ravel()
+    
+  SERVO_MAX = 6554
 
 ##### End of section dedicated to the Ravel kit #####
