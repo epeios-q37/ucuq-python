@@ -762,10 +762,12 @@ class Multi:
     def wrapper(*args, **kwargs):
       for object in self.objects_:
         if hasattr(object, "__getattr__"):
-          object.__getattr__(methodName)(*args, **kwargs)
+          returned = object.__getattr__(methodName)(*args, **kwargs)
         else:
-          getattr(object, methodName)(*args, **kwargs)
-      return self
+          returned = getattr(object, methodName)(*args, **kwargs)
+      if type(returned) is type(object):
+        returned = self
+      return returned
 
     return wrapper
 

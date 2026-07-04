@@ -189,7 +189,7 @@ def launch(oled, buzzer, ring, lcd, upper, lower):
     getCommitEvents_()
   ]
   
-  ratioBackup = buzzer.ratio(.992)
+  ratioBackup = buzzer.off().ratio(.992)
   
   cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
   
