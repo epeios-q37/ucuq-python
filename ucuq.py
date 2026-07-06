@@ -633,7 +633,7 @@ B_LCD = "LCD"
 B_OLED = "OLED"
 B_BUZZER = "Buzzer"
 B_LOUDSPEAKER = "Loudspeaker"
-B_SMART_RGB = "SmartRGB"
+RING = "Ring"
 B_MATRIX = "Matrix"
 B_TFT = "TFT"
 
@@ -699,7 +699,7 @@ def getBits(infos, *bitLabels, device=None):
         )
       case "Buzzer" | "Loudspeaker":
         bits.append(Auto(PWM, infos, label, ["Pin"], None, device=device))
-      case "SmartRGB":
+      case "Ring":
         bits.append(
           Auto(WS2812, infos, label, ["Pin"], ["Count"], device=device)
         )
@@ -1198,7 +1198,8 @@ class Core_:
       return multi
     else:
       obj = object.__new__(cls)
-      cls.__init__(obj, *kargs, **kwargs)
+      cls.__init__(obj, *kargs, **kwargs) # TODO: '__init__' is called twice for object accessing
+                                          # device through another object (servo, I2C-related objects… )
       return obj
   
   def __init__(self, device=None):
@@ -1584,7 +1585,7 @@ class PWM(Core_):
     return int(self.callMethod("duty_ns()"))
 
   def setNS(self, ns):
-    return self.addMethods(f"duty_ns({self.ConvNS_(ns)})")
+    return self.addMethods(f"duty_ns({self.convNS_(ns)})")
 
   def getFreq(self):
     return int(self.callMethod("freq()"))
@@ -1594,6 +1595,7 @@ class PWM(Core_):
 
   def deinit(self):
     return self.addMethods(f"deinit()")
+  
   
 class Multi_:
   def __new__(cls, *kargs, **kwargs):
@@ -1847,7 +1849,7 @@ class HD44780_I2C(Multi_, Core_):
     return self.backlightOff()
 
 
-class Servo(Core_):
+class Servo(Multi_):
   param_ = (1, 'pwm')
   class Specs:
     def __init__(self, u16_min, u16_max, range):
@@ -1887,8 +1889,6 @@ class Servo(Core_):
       self.init(pwm, specs, tweak=tweak, domain=domain)
 
   def init(self, pwm, specs, tweak=None, domain=None, extra=True):
-    super().init("Servo-1", "", pwm.getDevice(), extra)
-
     self.test_(specs, tweak, domain)
 
     if not tweak:
@@ -1902,9 +1902,9 @@ class Servo(Core_):
     self.domain_ = domain
 
     self.pwm_ = pwm
-    self.u16_ = 0
-
-    self.reset()
+    
+  def getDevice(self):
+    return self.pwm_.getDevice()
 
   def angleToDuty_(self, angle):
     if self.tweak_.invert:
@@ -1937,9 +1937,6 @@ class Servo(Core_):
 
     return angle - self.tweak_.angle
 
-  def reset(self):
-    self.setAngleRough(0)
-
   def getAngle(self):
     return self.dutyToAngle_(self.pwm_.getU16())
   
@@ -1956,11 +1953,14 @@ class Servo(Core_):
   def setU16(self, u16):
     step = 40
     
-    while self.u16_ < u16:
-      self.setU16Rough(min(self.u16_ + step, u16))
-      
-    while self.u16_ > u16:
-      self.setU16Rough(max(self.u16_ - step, u16))
+    if self.u16_ is None:
+      self.setU16Rough(u16)
+    else:
+      while self.u16_ < u16:
+        self.setU16Rough(min(self.u16_ + step, u16))
+        
+      while self.u16_ > u16:
+        self.setU16Rough(max(self.u16_ - step, u16))
       
     return self
   
@@ -2359,7 +2359,7 @@ def servoMoves(moves, step=100, delay=0.05):
       jumps[key] = []
       commands[key] = []
 
-    jumps[key].append([servo.pwm, servo.angleToDuty(move[1])])
+    jumps[key].append([servo.pwm_, servo.angleToDuty_(move[1])])
 
   for key in jumps:
     commands[key].append(pwmJumps(jumps[key], step, delay))
@@ -3059,10 +3059,11 @@ class kit_: # Act as namespace.
   class SSD1306_I2C(globals()["SSD1306_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     pass
   
-  class Servo180(globals()["Servo"]):  # Workaround to Brython issue 
+  class Servo180(Servo):
     def __init__(self, pin, rest, device = None, extra = True):
-      super().__init__(pwm := PWM(pin, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))"), Servo.Specs(1638, 8192, 180))
-      pwm.setU16(rest)
+      pwm = PWM(pin, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))")
+      super().__init__(pwm, Servo.Specs(1638, 8192, 180))
+      self.set(rest)
 
 
 def BaseClassPatch_(caller, owner):
@@ -3090,6 +3091,7 @@ class Ravel:
     self.lcd_ = cls.init_(lcd, lambda : ravel.LCD(device, extra))
     self.upper_ =  cls.init_(upper, lambda : ravel.Upper(device, extra))
     self.lower_ =  cls.init_(lower, lambda : ravel.Lower(device, extra))
+    (servo.park() for servo in (self.upper_, self.lower_))
     
   def raz(self):
     self.__init__(self.ring_.getOffset())
@@ -3119,14 +3121,14 @@ class Ravel:
 class ravel_:  # act as namespace
   class Upper(kit_.Servo180):
     def __init__(self, device=None, extra=True):
-      return super().__init__(0, 8192, device, extra)
+      return super().__init__(0, ravel.SERVO_MAX, device, extra)
     
     def park(self):
       self.set(ravel.SERVO_MAX)
   
   class Lower(kit_.Servo180):
     def __init__(self, device=None, extra=True):
-      return super().__init__(1, 1638, device, extra)
+      return super().__init__(1, 0, device, extra)
     
     def park(self):
       self.set(0)

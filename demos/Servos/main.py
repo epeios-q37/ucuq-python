@@ -115,6 +115,8 @@ def atk(dom):
   kitLabel =  ucuq.getKitLabel(infos)
 
   updateFileList(dom, next((key for key, val in SOLOS.items() if val == kitLabel), None))
+  
+  reset_()
 
 
 def atkTest():
