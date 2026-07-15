@@ -112,7 +112,7 @@ def getLCDEvents_(lcd):
   events = []
   
   while elapsed <= DURATION_:
-    events.append((lambda levels = levels.copy(): lcd.putGauges(0, levels), delay))
+    events.append((lambda levels = levels.copy(): lcd.putUpwardGauges(0, levels), delay))
     
     for i in range(len(levels)):
       levels[i] += coeffs[i]
@@ -133,7 +133,7 @@ LIMIT_ = ucuq.ravel.SERVO_MAX
 DELTA_ = LIMIT_ // 3
 
 def getServosEvents_(upper, lower):
-  delay = 1 / 6
+  delay = 1 / 10
   ups = [LIMIT_// 2, random.randrange(1, DELTA_)]
   downs = [random.randrange(LIMIT_-DELTA_, LIMIT_), LIMIT_ // 2]
   levels = [LIMIT_ // 2, LIMIT_ // 2]

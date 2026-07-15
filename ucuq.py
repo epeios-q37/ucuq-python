@@ -1599,7 +1599,7 @@ class PWM(Core_):
   
 class Multi_:
   def __new__(cls, *kargs, **kwargs):
-    position, name = cls.param_
+    position, name = cls.MULTI_PARAMS_
     
     if name in kwargs:
       ArgIsKW = True
@@ -1636,7 +1636,7 @@ def buzzerConvert_(note):
   return note if note <= 0 else round(BUZZER_BASE_FREQ_ * BUZZER_MUL_ ** ( note + 3 ))
 
 class Buzzer(Multi_):
-  param_ = (0, "pwm")
+  MULTI_PARAMS_ = (0, "pwm")
 
   def __init__(self, pwm=None, *, u16=32000, extra=True):
     self.on_ = False
@@ -1786,21 +1786,28 @@ class PWM_PCA9685(Core_):
 
 
 class HD44780_I2C(Multi_, Core_):
-  param_ = (2, "i2c")
-  def __init__(self, num_columns, num_lines, /, i2c, addr=None, extra=True):
+  VERTICAL_GAUGES_TABLE_ = tuple((' ',) + tuple(chr(c) for c in (range(8))))
+  HORIZONTAL_GAUGES_TABLE_ = ('',) + tuple(chr(c) for c in range(5)) + (chr(4),)
+  VERTICAL_PEAKS_TABLE_ = tuple(chr(c) for c in (32, 0, 95, 1, 2, 45, 3, 4, 5, 32))
+  HORIZONTAL_PEAKS_TABLE_ = tuple(chr(c) for c in range(5))
+  MULTI_PARAMS_ = (2, "i2c")
+
+  def __init__(self, numColumns, numLines, /, i2c, addr=None, extra=True):
     super().__init__()
 
     if i2c:
-      HD44780_I2C.init(self, num_columns, num_lines, i2c, addr=addr, extra=extra)
+      HD44780_I2C.init(self, numColumns, numLines, i2c, addr=addr, extra=extra)
     elif addr is not None:
       raise Exception("addr can not be given without i2c!")
 
-  def init(self, num_columns, num_lines, i2c, addr=None, extra=True):
+  def init(self, numColumns, numLines, i2c, addr=None, extra=True):
+    self.numLines_ = numLines
+    self.numColumns_ = numColumns
     return (
       super()
       .init(
         "HD44780_I2C-1",
-        f"HD44780_I2C({i2c.getObject()},{num_lines},{num_columns},{addr})",
+        f"HD44780_I2C({i2c.getObject()},{numLines},{numColumns},{addr})",
         i2c.getDevice(),
         extra,
       )
@@ -1814,7 +1821,8 @@ class HD44780_I2C(Multi_, Core_):
     return self.addMethods('putstr("{}")'.format(string.replace('"','\\"')))
 
   def clear(self):
-    return self.addMethods("clear()")
+    # return self.addMethods("clear()") # Do not work !
+    return self.moveTo(0,0).putString(" " * self.numColumns_ * self.numLines_)
 
   def showCursor(self, value=True):
     return self.addMethods("show_cursor()" if value else "hide_cursor()")
@@ -1848,9 +1856,139 @@ class HD44780_I2C(Multi_, Core_):
     self.getDevice().sleep(FLASH_DELAY_ if isinstance(extra, bool) else extra)
     return self.backlightOff()
 
+  def uploadUpwardGaugeChars(self):
+    charmap = [0b00000] * 8
+    
+    for i in range(8):
+      charmap[7-i] = 0b11111
+      self.createChar(i, charmap)
+      
+    return self
+  
+  def putUpwardGauges(self, position, gauges, strip = False):
+    up = ""
+    down = ""
+    table = self.VERTICAL_GAUGES_TABLE_
+    
+    for gauge in gauges:
+      up += table[max(gauge - 8, 0)]
+      down += table[min(gauge, 8)]
+      
+    if not strip and position == 0 and len(gauges) == 16:
+      self.moveTo(0,0).putString(up + down)
+    else:
+      self.moveTo(position,0).putString(up.rstrip() if len(up.rstrip()) != 0 else " " * 16)
+      self.moveTo(position,1).putString(down.rstrip() if len(down.rstrip()) != 0 else " " * 16)
+
+  def uploadDownwardGaugeChars(self):
+    charmap = [0b00000] * 8
+    
+    for i in range(8):
+      charmap[i] = 0b11111
+      self.createChar(i, charmap)
+      
+    return self
+  
+  def putDownwardGauges(self, position, gauges, strip = False):
+    up = ""
+    down = ""
+    table = self.VERTICAL_GAUGES_TABLE_
+    
+    for gauge in gauges:
+      up += table[min(gauge, 8)]
+      down += table[max(gauge - 8, 0)]
+      
+    if not strip and position == 0 and len(gauges) == 16:
+      self.moveTo(0,0).putString(up + down)
+    else:
+      self.moveTo(position,0).putString(up.rstrip() if len(up.rstrip()) != 0 else " " * 16)
+      self.moveTo(position,1).putString(down.rstrip() if len(down.rstrip()) != 0 else " " * 16)
+  
+  def uploadForwardGaugeChars(self):
+    charmap = [0b00000] * 8
+    
+    for c in range(5):
+      for i in range(len(charmap)):
+        charmap[i] = 0b10000 | ( charmap[i] >> 1 )
+      self.createChar(c, charmap)
+      
+    return self
+  
+  def getForwardGauge(self, gauge):
+    table = self.HORIZONTAL_GAUGES_TABLE_
+    return table[6] * (gauge // 5) + table[gauge % 5]
+      
+  def uploadBackwardGaugeChars(self):
+    charmap = [0b00000] * 8
+    
+    for c in range(5):
+      for i in range(len(charmap)):
+        charmap[i] = 0b00001 | ( charmap[i] << 1 )
+      self.createChar(c, charmap)
+      
+    charmap = [0b10000] * 8
+    self.createChar(5, charmap)
+
+    charmap = [0b01000] * 8
+    self.createChar(6, charmap)
+
+    charmap = [0b000010] * 8
+    self.createChar(7, charmap)
+      
+    return self
+  
+  def getBackwardGauge(self, gauge, max):
+    table = self.HORIZONTAL_GAUGES_TABLE_
+    return " " *((max - gauge) // 5) + table[gauge % 5] + table[5] * (gauge // 5)
+  
+  def uploadVPeakChars(self):
+    charmap = [0b00000] * 7 + [0b11111]
+    
+    for c in range(7):
+      print(charmap)
+      self.createChar(c, charmap)
+      del charmap[0]
+      charmap.append(0b0000)
+      if c in(0,2):
+        del charmap[0]
+        charmap.append(0b0000)
+      
+    return self
+    
+  def putUpwardPeaks(self, position, peaks, strip = False):
+    up = ""
+    down = ""
+    table = self.VERTICAL_PEAKS_TABLE_
+    
+    for peak in peaks:
+      up += table[max(peak - 7, 0)]
+      down += table[min(peak + 1, 9)]
+      
+    if not strip and position == 0 and len(peaks) == 16:
+      self.moveTo(0,0).putString(up + down)
+    else:
+      self.moveTo(position,0).putString(up.rstrip() if len(up.rstrip()) != 0 else " " * 16)
+      self.moveTo(position,1).putString(down.rstrip() if len(down.rstrip()) != 0 else " " * 16)
+
+  def putDownwardPeaks(self, position, peaks, strip = False):
+    return self.putUpwardPeaks(position, tuple(15 - peak for peak in peaks), strip)
+
+  def uploadHPeakChars(self):
+    for c in range(5):
+      self.createChar(c, (0b10000 >> c,) * 8)
+        
+    return self
+    
+  def getForwardPeak(self, gauge):
+    table = self.HORIZONTAL_PEAKS_TABLE_
+    return ' ' * (gauge // 5) + table[gauge % 5]
+
+  def getBackwardPeak(self, gauge, max):
+    return self.getForwardPeak(max - gauge)
+
 
 class Servo(Multi_):
-  param_ = (1, 'pwm')
+  MULTI_PARAMS_ = (1, 'pwm')
   class Specs:
     def __init__(self, u16_min, u16_max, range):
       self.min = u16_min
@@ -2076,7 +2214,7 @@ class SSD1306(OLED_):
 
 
 class SSD1306_I2C(Multi_, SSD1306):
-  param_ = (2, 'i2c')
+  MULTI_PARAMS_ = (2, 'i2c')
   def __init__(
     self,
     width=None,
@@ -2354,7 +2492,7 @@ def servoMoves(moves, step=100, delay=0.05):
     servo = move[0]
     key = id(servo.getDevice())
 
-    if not key in devices:
+    if key not in devices:
       devices[key] = servo.getDevice()
       jumps[key] = []
       commands[key] = []
@@ -2965,33 +3103,7 @@ class kit_: # Act as namespace.
     pass
       
   class HD44780_I2C(globals()["HD44780_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
-    def uploadGaugeChars(self):
-      charmap = [0b00000] * 8
-      
-      for i in range(8):
-        charmap[7-i] = 0b11111
-        self.createChar(i, charmap)
-        
-      return self
-        
-    @staticmethod
-    def getGaugeChar_(gauge):
-      return " " if gauge == 0 else chr(min(gauge, 8) - 1)
-        
-    def putGauges(self, position, gauges, strip = False):
-      up = ""
-      down = ""
-      for gauge in gauges:
-        up += self.getGaugeChar_(max(gauge - 8, 0))
-        down += self.getGaugeChar_(min(gauge, 8))
-        
-      if not strip and position == 0 and len(gauges) == 16:
-        self.moveTo(0,0).putString(up + down)
-      else:
-        self.moveTo(position,0).putString(up.rstrip() if len(up.rstrip()) != 0 else " " * 16)
-        self.moveTo(position,1).putString(down.rstrip() if len(down.rstrip()) != 0 else " " * 16)
-        
-        
+
     @staticmethod
     def deepMax_(x):
       return x if not isinstance(x,(list,tuple,set)) else max((kit_.HD44780_I2C.deepMax_(i) for i in x), default=None)
@@ -3063,7 +3175,7 @@ class kit_: # Act as namespace.
     def __init__(self, pin, rest, device = None, extra = True):
       pwm = PWM(pin, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))")
       super().__init__(pwm, Servo.Specs(1638, 8192, 180))
-      self.set(rest)
+      self.flash()
 
 
 def BaseClassPatch_(caller, owner):
@@ -3073,10 +3185,6 @@ def BaseClassPatch_(caller, owner):
 ##### End of generic section for kits #####
 
 ##### Begin of section dedicated to the Ravel kit #####
-
-def ravelDisplayRingGauges_(rings, lcds, globalMax, placeholder, addendum):
-  for ring in rings:
-    lcds[rings.index(ring)].displayRingGauges(ring, 0, 0, 16, globalMax, placeholder, addendum)
 
 class Ravel:
   @staticmethod
@@ -3091,7 +3199,6 @@ class Ravel:
     self.lcd_ = cls.init_(lcd, lambda : ravel.LCD(device, extra))
     self.upper_ =  cls.init_(upper, lambda : ravel.Upper(device, extra))
     self.lower_ =  cls.init_(lower, lambda : ravel.Lower(device, extra))
-    (servo.park() for servo in (self.upper_, self.lower_))
     
   def raz(self):
     self.__init__(self.ring_.getOffset())
@@ -3115,13 +3222,17 @@ class Ravel:
     return self.lower_
 
   def displayRingGauges(self, globalMax = 0, placeholder=".", addendum="  "):
-    ravelDisplayRingGauges_(kit_.ensureSequence_(self.ring_), kit_.ensureSequence_(self.lcd_), globalMax, placeholder, addendum)
+    ravel.displayRingGauges(kit_.ensureSequence_(self.ring_), kit_.ensureSequence_(self.lcd_), globalMax, placeholder, addendum)
     
-    
+
 class ravel_:  # act as namespace
   class Upper(kit_.Servo180):
     def __init__(self, device=None, extra=True):
       return super().__init__(0, ravel.SERVO_MAX, device, extra)
+    
+    def flash(self):
+      self.set(ravel.SERVO_MAX - 500)
+      self.park()
     
     def park(self):
       self.set(ravel.SERVO_MAX)
@@ -3130,11 +3241,20 @@ class ravel_:  # act as namespace
     def __init__(self, device=None, extra=True):
       return super().__init__(1, 0, device, extra)
     
+    def flash(self):
+      self.set(500)
+      self.park()
+      
     def park(self):
       self.set(0)
 
 
 class ravel:  # act as namespace
+  @staticmethod
+  def displayRingGauges(rings, lcds, globalMax, placeholder, addendum):
+    for ring in rings:
+      lcds[rings.index(ring)].displayRingGauges(ring, 0, 0, 16, globalMax, placeholder, addendum)
+  
   class Buzzer(kit_.Buzzer):
     def __new__(cls, device=None, extra=True):
       return super().__new__(BaseClassPatch_(cls, ravel.Buzzer), PWM(5, device=device), extra=extra)
@@ -3158,11 +3278,15 @@ class ravel:  # act as namespace
   class Lower(ravel_.Lower):
     def __new__(cls, device=None, extra=True):
       return super().__new__(BaseClassPatch_(cls, ravel.Lower), device=device, extra=extra)
-    
 
   def raz():
     Ravel()
     
   SERVO_MAX = 6554
+  RING_MAX = 31
+  OLED_WIDTH = 128
+  OLED_HEIGHT = 64
+  LCD_WIDTH = 16
+  LCD_HEIGHT = 2
 
 ##### End of section dedicated to the Ravel kit #####
