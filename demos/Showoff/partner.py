@@ -6,6 +6,7 @@ import ucuq
 import cube
 import matrix
 import oled
+import servo
 import shared
 
 from shared import (
@@ -44,7 +45,7 @@ def connect(device):
   lcd_.uploadUpwardGaugeChars()
 
 
-LINE1_ = "En avant pour".center(16)
+LINE1_ = "En route pour".center(16)
 #        "1234567890123456"
 LINE2_ = "l'aventure !".center(16)
 
@@ -233,23 +234,7 @@ def Ring():
   
   
 def Servos():
-  cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
-  for angle in range(-90, 90):
-    upper_.setAngle(-angle)
-    lower_.setAngle(angle)
-    ucuq.sleep(.01)
-    if not angle % 10:
-      ucuq.commit()
-
-  for angle in range(-90, 90):
-    upper_.setAngle(angle)
-    lower_.setAngle(-angle)
-    ucuq.sleep(.01)
-    if not angle % 10:
-      ucuq.commit()
-      
-  ucuq.commit()
-  ucuq.setCommitBehavior(cb)
+  servo.launch(oled_, ring_, lcd_, upper_, lower_)
 
 
 SPOKEN_COLORS_ = {

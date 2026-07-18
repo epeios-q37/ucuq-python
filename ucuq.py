@@ -1979,12 +1979,12 @@ class HD44780_I2C(Multi_, Core_):
         
     return self
     
-  def getForwardPeak(self, gauge):
+  def getForwardPeak(self, peak):
     table = self.HORIZONTAL_PEAKS_TABLE_
-    return ' ' * (gauge // 5) + table[gauge % 5]
+    return ' ' * (peak // 5) + table[peak % 5]
 
-  def getBackwardPeak(self, gauge, max):
-    return self.getForwardPeak(max - gauge)
+  def getBackwardPeak(self, peak, max):
+    return self.getForwardPeak(max - peak)
 
 
 class Servo(Multi_):
