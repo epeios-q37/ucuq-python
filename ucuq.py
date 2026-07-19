@@ -3196,17 +3196,20 @@ def BaseClassPatch_(caller, owner):
 
 class Ravel:
   @staticmethod
-  def init_(object, instanciation):
-    return object if object is not None else instanciation()
+  def init_(create, object, instanciation):
+    return object if object is not None else (instanciation() if create else None)
     
-  def __init__(self, ringOffset=0, device=None, extra=True, *, buzzer=None, ring=None, oled=None, lcd=None, upper=None, lower=None):
+  def __init__(self, ringOffset=0, device=None, extra=True, *, buzzer=None, ring=None, oled=None, lcd=None, upper=None, lower=None, create = None):
+    if create is None:
+      create =  all(x is None for x in (buzzer, ring, oled, lcd, upper, lower))
+
     cls = self.__class__
-    self.buzzer_ = cls.init_(buzzer, lambda : ravel.Buzzer(device, extra))
-    self.ring_ = cls.init_(ring, lambda : ravel.Ring(ringOffset, device, extra))
-    self.oled_ = cls.init_(oled, lambda : ravel.OLED(device, extra))
-    self.lcd_ = cls.init_(lcd, lambda : ravel.LCD(device, extra))
-    self.upper_ =  cls.init_(upper, lambda : ravel.Upper(device, extra))
-    self.lower_ =  cls.init_(lower, lambda : ravel.Lower(device, extra))
+    self.buzzer_ = cls.init_(create, buzzer, lambda : ravel.Buzzer(device, extra))
+    self.ring_ = cls.init_(create, ring, lambda : ravel.Ring(ringOffset, device, extra))
+    self.oled_ = cls.init_(create, oled, lambda : ravel.OLED(device, extra))
+    self.lcd_ = cls.init_(create, lcd, lambda : ravel.LCD(device, extra))
+    self.upper_ =  cls.init_(create, upper, lambda : ravel.Upper(device, extra))
+    self.lower_ =  cls.init_(create, lower, lambda : ravel.Lower(device, extra))
     
   def raz(self):
     self.__init__(self.ring_.getOffset())

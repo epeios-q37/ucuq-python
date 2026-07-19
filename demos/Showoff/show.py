@@ -23,7 +23,7 @@ def setDevices_():
   devices = types.SimpleNamespace()
 
   devices.rings = Ring_()
-  devices.ravel = ucuq.Ravel(ring=devices.rings)
+  devices.ravel = ucuq.Ravel(ring=devices.rings, create = True)
 
   devices.buzzers, devices.lcds, devices.oleds = devices.ravel.get("BLO")
 

@@ -106,11 +106,8 @@ def set(dom):
 
 
 def indy(withSound=True):
-  ravel = ucuq.Ravel()
-  ring = ravel.ring()
-  oled = ravel.oled()
-  lcd = ravel.lcd()
-  buzzer = ravel.buzzer()
+  buzzer, ring, oled, lcd = ucuq.ravel.get("BROL")
+  ravel = ucuq.Ravel(buzzer = buzzer, ring = ring, oled = oled, lcd = lcd)
 
   ringOffset = int(time.time())
   ring.flash()
