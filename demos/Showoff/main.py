@@ -134,18 +134,21 @@ def atkShowTest():
   show.syncTest()  
 
 def atkShowIndy(dom):
-  timestamp = show.countdownIfSelected(dom, time.time() + DELAY)
-  indy.launch(timestamp)
+  devices = show.getDevices()
+  timestamp = show.countdownIfSelected(dom, time.time() + DELAY, devices)
+  indy.launch(timestamp, devices)
 
 
 def atkShowPink(dom):
-  timestamp = show.countdownIfSelected(dom, time.time() + DELAY)
-  pink.launch(timestamp)
+  devices = show.getDevices()
+  timestamp = show.countdownIfSelected(dom, time.time() + DELAY, devices)
+  pink.launch(timestamp, devices)
 
 
 def atkShowFugue(dom):
-  timestamp = show.countdownIfSelected(dom, time.time() + DELAY)
-  trio.launch(timestamp)
+  devices = show.getDevices()
+  timestamp = show.countdownIfSelected(dom, time.time() + DELAY, devices)
+  trio.launch(timestamp, devices)
 
 
 def atkShowColorUpdate(dom):
@@ -153,15 +156,17 @@ def atkShowColorUpdate(dom):
 
 
 def atkShowColorOnce(dom):
+  devices = show.getDevices()
   scheme, delay = dom.getValues((colors.W_SCHEMES, colors.W_DELAY)).values()
-  timestamp = show.countdownIfSelected(dom, time.time() + DELAY)
-  colors.launch(int(scheme), timestamp, float(delay), 1)
+  timestamp = show.countdownIfSelected(dom, time.time() + DELAY, devices)
+  colors.launch(int(scheme), timestamp, float(delay), 1, devices)
 
 
 def atkShowColorRepeat(dom):
+  devices = show.getDevices()
   scheme, delay, repeat = dom.getValues((colors.W_SCHEMES, colors.W_DELAY, colors.W_REPEAT)).values()
-  timestamp = show.countdownIfSelected(dom, time.time() + DELAY)
-  colors.launch(int(scheme), timestamp, float(delay), int(repeat))
+  timestamp = show.countdownIfSelected(dom, time.time() + DELAY, devices)
+  colors.launch(int(scheme), timestamp, float(delay), int(repeat), devices)
 
 if os.environ.get("PREFIX", "").startswith("/data/data/com.termux"):
   atlastk.set_supplier(lambda url: os.system(f'am start -n com.android.chrome/com.google.android.apps.chrome.Main -d "{url}"')) 

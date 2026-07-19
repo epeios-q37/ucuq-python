@@ -2015,7 +2015,7 @@ class Servo(Multi_):
       if not specs:
         raise Exception("'domain' can not be given without 'specs'!")
 
-  def __init__(self, pwm=None, specs=None, /, *, tweak=None, domain=None):
+  def __init__(self, pwm=None, specs=None, /, *, tweak=None, domain=None, smooth = False):
     super().__init__()
 
     self.test_(specs, tweak, domain)
@@ -2024,9 +2024,9 @@ class Servo(Multi_):
     self.u16_ = None
 
     if pwm:
-      self.init(pwm, specs, tweak=tweak, domain=domain)
+      self.init(pwm, specs, smooth = smooth, tweak=tweak, domain=domain)
 
-  def init(self, pwm, specs, tweak=None, domain=None, extra=True):
+  def init(self, pwm, specs, *, tweak=None, domain=None, smooth = False, extra=True):
     self.test_(specs, tweak, domain)
 
     if not tweak:
@@ -2040,6 +2040,8 @@ class Servo(Multi_):
     self.domain_ = domain
 
     self.pwm_ = pwm
+
+    self.set = self.setSmooth if smooth else self.setRough
     
   def getDevice(self):
     return self.pwm_.getDevice()
@@ -2088,7 +2090,7 @@ class Servo(Multi_):
   def getU16(self):
     return self.u16_
   
-  def setU16(self, u16):
+  def setU16Smooth(self, u16):
     step = 40
     
     if self.u16_ is None:
@@ -2105,15 +2107,15 @@ class Servo(Multi_):
   def setAngleRough(self, angle):
     return self.setU16Rough(self.angleToDuty_(angle))
   
-  def setAngle(self, angle):
-    return self.setU16(self.angleToDuty_(angle))
+  def setAngleSmooth(self, angle):
+    return self.setU16Smooth(self.angleToDuty_(angle))
   
   def setRough(self, value):
-    return self.setU16(value + self.specs_.min)
+    return self.setU16Rough(value + self.specs_.min)
   
-  def set(self, value):
-    return self.setU16(value + self.specs_.min)
-
+  def setSmooth(self, value):
+    return self.setU16Smooth(value + self.specs_.min)
+  
   def get(self):
     return self.u16_ - self.specs_.min
   
@@ -3173,9 +3175,13 @@ class kit_: # Act as namespace.
   
   class Servo180(Servo):
     def __init__(self, pin, rest, device = None, extra = True):
+      self.rest_ = rest
       pwm = PWM(pin, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))")
       super().__init__(pwm, Servo.Specs(1638, 8192, 180))
       self.flash()
+
+    def park(self):
+      self.setSmooth(self.rest_)
 
 
 def BaseClassPatch_(caller, owner):
@@ -3231,22 +3237,16 @@ class ravel_:  # act as namespace
       return super().__init__(0, ravel.SERVO_MAX, device, extra)
     
     def flash(self):
-      self.set(ravel.SERVO_MAX - 500)
+      self.setSmooth(ravel.SERVO_MAX - 500)
       self.park()
-    
-    def park(self):
-      self.set(ravel.SERVO_MAX)
   
   class Lower(kit_.Servo180):
     def __init__(self, device=None, extra=True):
       return super().__init__(1, 0, device, extra)
     
     def flash(self):
-      self.set(500)
+      self.setSmooth(500)
       self.park()
-      
-    def park(self):
-      self.set(0)
 
 
 class ravel:  # act as namespace

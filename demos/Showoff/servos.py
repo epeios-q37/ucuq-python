@@ -2,11 +2,11 @@ import random
 
 import ucuq
 
-STEP_MIN_ = 10
+STEP_MIN_ = 50
 STEP_MAX_ = 300
 DURATION_ = 15
-DELAY_ = 1 / 8
-COMMIT_DELAY_ = 1 / 20
+DELAY_ = 1 / 15
+COMMIT_DELAY_ = 1 / 10
 MAX_ = ucuq.ravel.SERVO_MAX
 WIDTH_ = ucuq.ravel.LCD_WIDTH * 5
 COLOR_MAX_ = ucuq.ravel.RING_MAX // 7
@@ -69,7 +69,7 @@ def getServosEvents_(servo, lcd):
         step = random.randrange(STEP_MIN_, STEP_MAX_ + 1)
 
     oledData.append(current)
-    events.append((lambda pos = current, step = step: (servo.setRough(pos), lcd[0].moveTo(0, lcd[1]).putString(lcd[0].getForwardPeak(WIDTH_ * pos // (MAX_ + 1)).ljust(ucuq.ravel.LCD_WIDTH))), DELAY_))
+    events.append((lambda pos = current, step = step: (servo.set(pos), lcd[0].moveTo(0, lcd[1]).putString(lcd[0].getForwardPeak(WIDTH_ * pos // (MAX_ + 1)).ljust(ucuq.ravel.LCD_WIDTH))), DELAY_))
 
     elapsed += DELAY_
     ringDelay += DELAY_
@@ -110,7 +110,13 @@ def getCommitEvents_():
 def extend_(array, n):
   return array + [array[-1]]*(n-len(array)) if len(array)<n else array
 
-def launch(oled, ring, lcd, upper, lower):
+def launch():
+  oled = ucuq.ravel.OLED()
+  ring = ucuq.ravel.Ring()
+  lcd = ucuq.ravel.LCD()
+  upper = ucuq.ravel.Upper()
+  lower = ucuq.ravel.Lower()
+
   ringEvents= []
   oledEvents = []
 
@@ -140,8 +146,9 @@ def launch(oled, ring, lcd, upper, lower):
 
   ucuq.sleepStart()
   ucuq.playEvents(eventList, lambda _, cumul: ucuq.sleepWait(cumul))
-
-  ucuq.setCommitBehavior(cb)
-
+  
   upper.park()
   lower.park()
+
+  ucuq.setCommitBehavior(cb)
+  ucuq.commit()

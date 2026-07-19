@@ -174,11 +174,18 @@ def getCommitEvents_():
   
   return events  
 
-def launch(oled, buzzer, ring, lcd, upper, lower):
-  upper.set(ucuq.ravel.SERVO_MAX // 2)
-  lower.set(ucuq.ravel.SERVO_MAX // 2)
+def launch():
+  oled = ucuq.ravel.OLED()
+  buzzer = ucuq.ravel.Buzzer()
+  ring = ucuq.ravel.Ring()
+  lcd = ucuq.ravel.LCD()
+  upper = ucuq.ravel.Upper()
+  lower = ucuq.ravel.Lower()
+  
+  upper.setSmooth(ucuq.ravel.SERVO_MAX // 2)
+  lower.setSmooth(ucuq.ravel.SERVO_MAX // 2)
   oled.invert(True)
-  lcd.backlightOn()
+  lcd.uploadUpwardGaugeChars().backlightOn()
   
   allEvents = [
     getBuzzerEvents_(buzzer),
