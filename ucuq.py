@@ -1789,7 +1789,7 @@ class HD44780_I2C(Multi_, Core_):
   VERTICAL_GAUGES_TABLE_ = tuple((' ',) + tuple(chr(c) for c in (range(8))))
   HORIZONTAL_GAUGES_TABLE_ = ('',) + tuple(chr(c) for c in range(5)) + (chr(4),)
   VERTICAL_PEAKS_TABLE_ = tuple(chr(c) for c in (32, 0, 95, 1, 2, 45, 3, 4, 5, 32))
-  HORIZONTAL_PEAKS_TABLE_ = tuple(chr(c) for c in range(5))
+  HORIZONTAL_PEAKS_TABLE_ = tuple(chr(c) for c in range(6))
   MULTI_PARAMS_ = (2, "i2c")
 
   def __init__(self, numColumns, numLines, /, i2c, addr=None, extra=True):
@@ -1974,17 +1974,19 @@ class HD44780_I2C(Multi_, Core_):
     return self.putUpwardPeaks(position, tuple(15 - peak for peak in peaks), strip)
 
   def uploadHPeakChars(self):
-    for c in range(5):
-      self.createChar(c, (0b10000 >> c,) * 8)
+    self.createChar(0, (0b11111,) + (0,) * 6 + (0b11111,))
+
+    for c in range(1, 6):
+      self.createChar(c, (0b11111,) + (0b10000 >> (c - 1),) * 6 + (0b11111,))
         
     return self
     
-  def getForwardPeak(self, peak):
+  def getForwardPeak(self, peak, max):
     table = self.HORIZONTAL_PEAKS_TABLE_
-    return ' ' * (peak // 5) + table[peak % 5]
+    return table[0] * (peak // 5) +  table[peak % 5 + 1] + table[0] * ((max - peak - 1) // 5)
 
   def getBackwardPeak(self, peak, max):
-    return self.getForwardPeak(max - peak)
+    return self.getForwardPeak(max - peak, max)
 
 
 class Servo(Multi_):
@@ -3226,6 +3228,28 @@ class Ravel:
   
   def lower(self):
     return self.lower_
+  
+  def get(self, list):
+
+    components = []
+
+    for item in list:
+      match item.upper():
+        case "B":
+          components.append(self.buzzer())
+        case "L":
+          components.append(self.lcd())
+        case "O":
+          components.append(self.oled())
+        case "R":
+          components.append(self.ring())
+        case "S":
+          components.extend([self.upper(), self.lower()])
+        case _:
+          raise ValueError(f"Unknown '{item}' component!")
+        
+    return components
+
 
   def displayRingGauges(self, globalMax = 0, placeholder=".", addendum="  "):
     ravel.displayRingGauges(kit_.ensureSequence_(self.ring_), kit_.ensureSequence_(self.lcd_), globalMax, placeholder, addendum)
@@ -3278,7 +3302,30 @@ class ravel:  # act as namespace
   class Lower(ravel_.Lower):
     def __new__(cls, device=None, extra=True):
       return super().__new__(BaseClassPatch_(cls, ravel.Lower), device=device, extra=extra)
+    
+  @staticmethod
+  def get(list):
 
+    components = []
+
+    for item in list:
+      match item.upper():
+        case "B":
+          components.append(ravel.Buzzer())
+        case "L":
+          components.append(ravel.LCD())
+        case "O":
+          components.append(ravel.OLED())
+        case "R":
+          components.append(ravel.Ring())
+        case "S":
+          components.extend([ravel.Upper(), ravel.Lower()])
+        case _:
+          raise ValueError(f"Unknown '{item}' component!")
+        
+    return components
+
+  @staticmethod
   def raz():
     Ravel()
     

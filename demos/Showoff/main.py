@@ -45,6 +45,7 @@ def atk(dom):
   dom.inner("", BODY.format(devices, DEVICES_[0], *SHOW_DEVICES_))  # type: ignore # noqa: F821
   colors.fill(dom)
   colors.update(dom)
+  partner.set(dom)
   dom.executeVoid("handleClearable();toggleFieldsetByLegend('Showoff', false);")
 
 
@@ -106,7 +107,7 @@ def atkPartnerDisplaySpokenColor(dom):
   
 # Called by JS script
 def atkPartnerDisplayOrientation(dom, id):
-  partner.DisplayOrientation(id)
+  partner.DisplayOrientation(dom, id)
 
 
 def atkPartnerIndy(dom):

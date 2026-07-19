@@ -69,7 +69,7 @@ def getServosEvents_(servo, lcd):
         step = random.randrange(STEP_MIN_, STEP_MAX_ + 1)
 
     oledData.append(current)
-    events.append((lambda pos = current, step = step: (servo.set(pos), lcd[0].moveTo(0, lcd[1]).putString(lcd[0].getForwardPeak(WIDTH_ * pos // (MAX_ + 1)).ljust(ucuq.ravel.LCD_WIDTH))), DELAY_))
+    events.append((lambda pos = current, step = step: (servo.set(pos), lcd[0].moveTo(0, lcd[1]).putString(lcd[0].getForwardPeak(WIDTH_ * pos // (MAX_ + 1), WIDTH_))), DELAY_))
 
     elapsed += DELAY_
     ringDelay += DELAY_
@@ -111,11 +111,7 @@ def extend_(array, n):
   return array + [array[-1]]*(n-len(array)) if len(array)<n else array
 
 def launch():
-  oled = ucuq.ravel.OLED()
-  ring = ucuq.ravel.Ring()
-  lcd = ucuq.ravel.LCD()
-  upper = ucuq.ravel.Upper()
-  lower = ucuq.ravel.Lower()
+  oled, ring, lcd, upper, lower = ucuq.ravel.get("ORLS")
 
   ringEvents= []
   oledEvents = []

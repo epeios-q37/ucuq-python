@@ -1,5 +1,6 @@
 import json
 import time
+import types
 
 import ucuq
 
@@ -15,13 +16,7 @@ from shared import (
   getRainbowColor as getRainbowColor_,
 )
 
-spokenColorLed_ = 0
-
 def connect(device):
-  global spokenColorLed_
-
-  spokenColorLed_ = 0
-
   ucuq.setDevice(shared.handleDeviceInput(device))
 
   ucuq.ravel.raz()
@@ -99,6 +94,15 @@ def oledAnimation_():
     sleepWait_(0.05)
 
   ucuq.setCommitBehavior(cb)
+
+
+def set(dom):
+  dom.partner = types.SimpleNamespace()
+  dom.partner.colors = types.SimpleNamespace()
+  dom.partner.colors.counter = 0
+  dom.partner.colors.led = 0
+  dom.partner.orientation = types.SimpleNamespace()
+  dom.partner.orientation.counter = 0
 
 
 def indy(withSound=True):
@@ -253,9 +257,9 @@ SPOKEN_COLORS_ = {
 
 
 def DisplaySpokenColor(dom):
-  global spokenColorLed_
+  dom.partner.colors.counter = dom.getCounter()
 
-  ravel = dom.ravel
+  ravel = dom.partner.colors.ravel
 
   ring = ravel.ring()
   oled = ravel.oled()
@@ -266,28 +270,34 @@ def DisplaySpokenColor(dom):
     color = color.lower()
     if color in SPOKEN_COLORS_:
       ucuq.sleepStart()
-      ring.setValue(spokenColorLed_, ((255, 255, 255))).write()
+      ring.setValue(dom.partner.colors.led, ((255, 255, 255))).write()
       r, g, b = map(
         lambda c: RGB_MAX_ * int(c) // 255, [c for c in SPOKEN_COLORS_[color]]
       )
       ucuq.sleepWait(0.05)
-      ring.setValue(spokenColorLed_, (r, g, b)).write()
+      ring.setValue(dom.partner.colors.led, (r, g, b)).write()
       ravel.displayRingGauges()
-      y = spokenColorLed_ % 8 * 8
+      y = dom.partner.colors.led % 8 * 8
       oled.rect(0, y, 128, 8, 0, True).rect(0, 0, 8, 64, 0, True).text(
         color, 64 - 8 * len(color) // 2, y
       )
-      if spokenColorLed_ >= 8:
+      if dom.partner.colors.led >= 8:
         oled.text(">", 0, y).show()
       oled.show()
-      spokenColorLed_ += 1
+      dom.partner.colors.led += 1
       break
 
 
-def DisplayOrientation(values):
-  ring = ucuq.ravel.Ring()
-  lcd = ucuq.ravel.LCD()
-  oled = ucuq.ravel.OLED()
+def DisplayOrientation(dom, values):
+  counter = dom.getCounter()
+
+  if dom.partner.orientation.counter != counter - 1:
+    ring, lcd, oled = ucuq.ravel.get("RLO")
+    dom.partner.orientation.ravel = ucuq.Ravel(ring = ring, oled = oled, lcd = lcd)
+
+  dom.partner.orientation.counter = counter
+
+  ring, lcd, oled = dom.partner.orientation.ravel.get("RLO")
 
   x, y, z = (float(value) for value in values.split(","))
   
@@ -299,16 +309,22 @@ def DisplayOrientation(values):
 
 
 def Listen(dom):
-  dom.ravel = ravel = ucuq.Ravel()
+  counter = dom.getCounter()
 
-  if spokenColorLed_ == 0:
-    ravel.lcd().backlightOn()
-    ravel.ring().fill((0, 0, 0)).write()
-    ravel.oled().fill(0).show()
+  if dom.partner.colors.counter != counter - 1:
+    ring, oled, lcd = ucuq.ravel.get("ROL")
+    lcd.uploadUpwardGaugeChars().backlightOn()
+    ring.fill((0, 0, 0)).write()
+    oled.fill(0).show()
+    dom.partner.colors.led = 0
+    dom.partner.colors.ravel = ucuq.Ravel(ring = ring, oled = oled, lcd = lcd)
+
+  dom.partner.colors.counter = counter
+
   dom.executeVoid("partnerListen()")
 
 
-def fusion_espaces(s1: str, s2: str) -> str:
+def spacesMerging_(s1: str, s2: str) -> str:
   i = 0
   while i < len(s2) and s2[i] == " ":
     i += 1
@@ -334,7 +350,7 @@ def LCD():
 
   for i in range(8):
     wave2 = chr(i) + wave2
-    lcd.moveTo(0, 1).putString(fusion_espaces(wave2, LINE2_)[:16])
+    lcd.moveTo(0, 1).putString(spacesMerging_(wave2, LINE2_)[:16])
     ucuq.sleep(DELAY_WAVE_)
 
   wave1 = ""
@@ -343,14 +359,14 @@ def LCD():
     wave1 = chr(i) + wave1
     wave2 = chr(7) + wave2
     lcd.putString(
-      fusion_espaces(wave1, LINE1_)[:16] + fusion_espaces(wave2, LINE2_)[:16]
+      spacesMerging_(wave1, LINE1_)[:16] + spacesMerging_(wave2, LINE2_)[:16]
     )
     ucuq.sleep(DELAY_WAVE_)
 
   for i in range(7, -1, -1):
     wave1 = chr(i) + wave1
     wave2 = chr(7) + wave2
-    lcd.putString(fusion_espaces(wave1, LINE1_)[:16] + wave2[:16])
+    lcd.putString(spacesMerging_(wave1, LINE1_)[:16] + wave2[:16])
     ucuq.sleep(DELAY_WAVE_)
 
   for i in range(7, -1, -1):
