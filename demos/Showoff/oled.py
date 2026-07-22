@@ -368,6 +368,9 @@ animations_ = tuple(
 def launch(field):
   oled = ucuq.ravel.OLED()
 
+  oled.addMethods("write_cmd(0xD5)")
+  oled.addMethods("write_cmd(0xF0)")
+
   oled.invert(True)
   
   for animation in animations_:
