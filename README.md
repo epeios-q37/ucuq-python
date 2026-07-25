@@ -11,7 +11,7 @@ Python library for easy prototyping of assemblies based on microcontrollers such
 ### On the microcontroller
 
 1. Install [*Micropython*](https://micropython.org/) on the microcontroller;
-2. put *main.py*, *ucuq.py* and *settings.py* on the microcontroller;
+2. put *main.py*, *ucuq.py* and *settings.py* from the *device* irectory on the microcontroller;
 3. create an *ucuq.json* file with below content and put it on the microcontroller;
 4. restart the microcontroller.
 
