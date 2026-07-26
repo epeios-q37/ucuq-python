@@ -49,7 +49,7 @@ You can put more then one entry under the `WLAN` entry; the microcontroller will
 3. fill the fields accordingly to the content of the *usuq.json* file described above (`Identification`/`device_token` and `Identification`/`device_id`);
 4. click on *Save* and quit the app.
 
-As an example, try following code which blinks an LED connected to your microcontroller:
+As an example, try following code which blinks a LED connected to your microcontroller:
 
 ```python
 import ucuq
