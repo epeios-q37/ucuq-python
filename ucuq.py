@@ -274,6 +274,10 @@ class Device_:
       writeStrings_(self.proxy.socket, modules)
 
   def execute_(self, script, expression = ""):
+    # Below line is a workaround for issue
+    # https://github.com/micropython/micropython/issues/19529
+    script = script.replace('\x00', '" + chr(0) + "')
+    
     if self.proxy.socket:
       with writeLock_:
         writeString_(self.proxy.socket, R_EXECUTE_)
