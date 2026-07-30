@@ -138,6 +138,9 @@ def atkShowColors(dom):
   timestamp = show.countdown(time.time() + DELAY, devices)
   colors.launch(timestamp, devices)
 
+if os.environ.get("PREFIX", "").startswith("/data/data/com.termux"):
+  atlastk.set_supplier(lambda url: os.system(f'am start -n com.android.chrome/com.google.android.apps.chrome.Main -d "{url}"')) 
+
 with open('Body.html', 'r') as file:
   BODY = file.read()
 

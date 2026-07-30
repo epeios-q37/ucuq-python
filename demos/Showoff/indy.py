@@ -29,7 +29,6 @@ def launch(timestamp, devices):
   helper = types.SimpleNamespace(prev = 0, led = 0)
   
   devices.oleds.powerOff().draw(INDY_, 128).show()
-
   devices.lcds.backlightOff().uploadUpwardGaugeChars()
 
   sleepUntil_(timestamp)
