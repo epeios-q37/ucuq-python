@@ -274,9 +274,10 @@ class Device_:
       writeStrings_(self.proxy.socket, modules)
 
   def execute_(self, script, expression = ""):
-    # Below line is a workaround for issue
     # https://github.com/micropython/micropython/issues/19529
-    script = script.replace('\x00', '" + chr(0) + "')
+    if '\0' in script:
+      # print(script.replace(chr(0), ">NUL<"))
+      raise ValueError("NUL char detected!")
     
     if self.proxy.socket:
       with writeLock_:
@@ -1826,6 +1827,9 @@ class HD44780_I2C(Multi_, Core_):
     return self.addMethods(f"move_to({x},{y})")
 
   def putString(self, string):
+    # Below line is due to https://github.com/micropython/micropython/issues/19529.
+    # According to the HD44780 datasheet, both character of code 0 and 8  display custom char 0…
+    string = string.replace(chr(0), chr(8))
     return self.addMethods('putstr("{}")'.format(string.replace('"','\\"')))
 
   def clear(self):
@@ -1953,7 +1957,6 @@ class HD44780_I2C(Multi_, Core_):
     charmap = [0b00000] * 7 + [0b11111]
     
     for c in range(7):
-      print(charmap)
       self.createChar(c, charmap)
       del charmap[0]
       charmap.append(0b0000)
@@ -2715,7 +2718,7 @@ def ntp_time_t1_t4_us(host="fr.pool.ntp.org"):
   s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   s.settimeout(2)
 
-  packet = b'\x1b' + 47 * b'\0'
+  packet = chr(0x1b) + 47 * chr(0)
 
   T1_us = time.ticks_us()
   s.sendto(packet, addr)
