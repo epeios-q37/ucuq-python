@@ -2660,7 +2660,8 @@ def playEvents(polyEvents, durationCallback):
     if len(inspect.signature(durationCallback).parameters) > 1:
       params.append(cumul)
 
-    durationCallback(*params)
+    if not durationCallback(*params):
+      return
         
     for i in range(len(indexes)):
       if indexes[i] is not None and indexes[i] >= len(polyEvents[i]):
