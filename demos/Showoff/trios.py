@@ -88,7 +88,6 @@ def updateRings(devices):
 
 def getMusicEvents(voice, turn, prev, devices ):
   events = []
-
   duration = 0
 
   for note in parseVoice(voice):
@@ -111,7 +110,7 @@ def oledCallback(oleds, notes, minNotes, maxNotes):
     minNote = minNotes[notes.index(note)]
     maxNote = maxNotes[notes.index(note)]
     if note:
-      oleds.pixel(128 // 3 * notes.index(note) + 128 // 3 - 128  // 3 * (note - minNote) // (maxNote - minNote), 0)
+      oleds.pixel(128 // 3 * notes.index(note) + 128  // 3 * (note - minNote) // (maxNote - minNote), 0)
     for oled in oleds:
       oled.hline(128 // 3 * oleds.index(oled), 63, 128 // 3, 1)
   oleds.show()
@@ -121,6 +120,7 @@ def getOLEDEvents(part, oleds):
   minNotes = [100] * 3
   maxNotes = [0] * 3
   minDelay = 100
+  cumul = 0
 
   events = []
   voices =[]
@@ -130,10 +130,6 @@ def getOLEDEvents(part, oleds):
       minNotes[part.index(voice)] = min(minNotes[part.index(voice)], note[0] if note[0] else minNotes[part.index(voice)])
       maxNotes[part.index(voice)] = max(maxNotes[part.index(voice)], note[0])
       minDelay = min(minDelay, note[1] if note[1] else minDelay)
-
-  print(float(minDelay))
-
-#  minDelay = max(minDelay, 1/3)
 
   for voice in part:
     voices.append(parseVoice(voice))
@@ -145,12 +141,13 @@ def getOLEDEvents(part, oleds):
       voice[0][1] -= minDelay
       while len(voice) and voice[0][1] <= 0:
         if len(voice) > 2:
-          voice[1][1] -= voice[0][1]
+          voice[1][1] += voice[0][1]
         del voice[0]
+    cumul += minDelay
 
   return events
 
-COMMIT_DELAY_ = 2
+COMMIT_DELAY_ = 3/4
 
 def getCommitEvents_(duration):
   events = []
@@ -177,11 +174,19 @@ def getLCDTitleEvents(title, duration, lcds):
   return events
 
 
+def getLCDDurationEvents(duration, lcds):
+  lcds.uploadForwardGaugeChars()
+  events=[]
+
+  for i in range(16 * 5 + 1):
+    events.append((lambda i = i: lcds.moveTo(0,1).putString(lcds[0].getForwardGauge(i)), duration / (16 * 5 + 1)))
+
+  return events
+
+
 def launch(part, timestamp, devices):
   devices.lcds.uploadUpwardGaugeChars()
 
-#  devices.oleds.contrast(0).draw(PICTURE_, 64, 32).show()
-    
   for index, ring in enumerate(devices.rings):
     ring.turn = index
     ring.go = False 
@@ -203,8 +208,8 @@ def launch(part, timestamp, devices):
     maxDuration = max(maxDuration, duration)
 
   eventList.append(getCommitEvents_(maxDuration))
-
-  eventList.append(getLCDTitleEvents(PARTS_[part][0][1], duration, devices.lcds))
+  eventList.append(getLCDTitleEvents(PARTS_[part][0][1], maxDuration, devices.lcds))
+  eventList.append(getLCDDurationEvents(maxDuration, devices.lcds))
 
   cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
 
@@ -218,21 +223,21 @@ def launch(part, timestamp, devices):
           sleepUntil_(timestamp + cumul),
         )
   )
+
+  devices.oleds.fill(0).show()
+  devices.lcds.clear().backlightOff()
+  devices.rings.fill((0,0,0)).write()
   
   ucuq.setCommitBehavior(cb)
 
-  devices.rings.fill((0,0,0)).write()
-  
-  devices.oleds.contrast(255)
-  
-  return scroll_("That's all Folks!", timestamp, devices)
+  ucuq.commit()
 
 
 PARTS_ =  (
   (
     (
     "Titelouze",
-    "Ave Maris Stella"),
+    "Jehan Titelouze - Ave Maris Stella"),
     (
       'CeNqFUlsWhCAI3VDnTApSuv+FjQKKmM38ZAjcB0i5hOMK7RNL+ET+rwfxPdZ/lAyuUSigde24RpfktBIs0krLKSYsmBrdwlcPkj7aiVglTUTGB07SWokiniPvCCZjlf04BRD7sBxqz3phNFokB37CE0GSQyopWoSSE5mNpQPw1h4WxvL6VXIFGilwHBFnVvpGRuaNBWwQdkK9pecgpqe2eSbO0MYJC3ozlS2fd2X/+pMZjm5FqONoRQKQ8o/BgENInuH12d19qdunYTtjSiqxSj2/ix/AHw==',
       'CeNqNUlsOwyAMuxAS4RFYuf/BViclhK6V9hMTTB62YBo5cEc4EHhLG9iWR5IQswGNHisgnTCfFmXw4LxKQY+to5zlZasKvNiL6AqHlSgnLett9BwQZVUBXllVTrfDFGtQpw7b3KlyYtImTeBqzJYF/iBs4zGLnTTJtwb0suYSJPveXUjOBXiyjHxTM436MeNNmlhAD03/rBc7yLvRllgzrjgXnu0JnPH5CoKcaOCevsQXhuo=',
@@ -251,7 +256,7 @@ PARTS_ =  (
   ),(
     (
       "BWV 528b",
-      "J.S. BACH - Sonate en trio pour orgue n°4 - (BWV 528) - Andante"
+      "Johann Sebastian Bach - Sonata No. 4 in E minor (BWV 528) - Andante"
     ),(
       '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',
@@ -261,7 +266,7 @@ PARTS_ =  (
   (
     (
       "BWV 870a",
-      "J.S. BACH - Prélude et fugue en mi majeur (BWV 870) - Fugue"
+      "Johann Sebastian Bach - Prelude and Fugue in C major (BWV 870) - Fugue"
     ),
     (
       'CeNrlVVuywyAI3VBmalCC6f4XdkVARU3n9rs/NbyOejzQ8D5fcFxUlnRcKAuJM8hyv8/qOtTWpLSULE5w1rbg/oACu7rtDuoMdcF7tCzFWT4F6UOdQl/tgO27R9h/u8NFjyDfoPXoru6JAE4QosMbDhIMOmXpKGUhBmaXhMVhWUkseT6O8TFbhTosK4kFR25A+Jo3N6CTT7ieHVQeNU7RcJgIkuwscFnvIk6ivn8/TRwuGEfwIb7ckLmt1wxPbPR9vPN01raAnlAemNSYEQrupKkx9fRqFtOC4N59Bfvmmvp2o6Rmy6eM2y51Ch025V7ZmjJZ8xTARxmjLP8eDaWbY2/q0uJx6PSSUn8KIgo+Ss9iagm86LRgGYNAaWabjhUYrL/rpi3TBij0o//6qA3fTdo2bsHRQsNI2PMJE58mn93cupIfbE3wa7+4Hqwi5nD11teKbdrjyiO4oZGcKKDJgIQYVH70x1EUTIeVy9gVC0fKpkoRuOVGp2cZqdhxpDFm4WJ2f4/ZSRW7VIf/tRbOI1uThY52GOc7jHQE25A/wx+067kA',
@@ -272,7 +277,7 @@ PARTS_ =  (
   (
     (
       "BWV 847b",
-      "J.S. BACH - Prélude et fugue en ut mineur (BWV 847) - Fugue"
+      "Johann Sebastian Bach - Prelude and Fugue in C minor (BWV 847) - Fugue"
     ),(
     'CeNrNV+2OxCAIfKFLThT82Pd/sL1c0t2kI3W0bu76k8AAyjg0PEptWtJ3DL/fV4mHRQ+LgCWeo3IBS92DXHScaxuynaPeuRT6Et8HcZJfz8vSwFJ9n+j3ZWBZQq4yPrFdyDkTE9Vmoo7bCXAVaInj6yJHI6ZcVdp+aDzngMlWqx77EAOd4z1aih8V7tX8qqcQVAGfQLCASSUEc3Upau3duOhC3NYz0SjcxDtK3Sgkdwm+5ZIW7qNOPBIzetaxlHFyLNDgUM0IH8SBWbG0EpXRpy7VbEQ9QlRYN51YXqrwYnwUdEj9ScAZS5uQCersQp4TT/F9AAdvOTBqqjN9zampbhNq1DxIlu9Bxxnp9iVO3FRX5bgwKPedHmQM8/9/SZDKkfCxv/gB+dyPnq+mnxN35pjTzJvlq875zaKW+7DiArg25lpnmJK/4SmMsrq7LDO4naXPiKXP3zin2mL2eh3u9WuUtUYofSQsxDZJEKvDfOYXFOUP+9IT0X/KCU+QsaTM',
     'CeNrFV9FuwzAI/KFJNfZhk/7/h22q1lTbBRtbaZNHRA44DkLSXQqyJMgtp8fz1eTebEMrN/xa6kaWRhYlSyFLJkt6WvboShaQJZOFcF45+z4HOJThKzooQ/F9GKdTaSRWJuZ3ixFy83FAPlOMbT4OyIcV1WEeoZxzqQbZpkhM9JZ1CuvITsfUH7RHZ3w6w8M42UeWvfaVXrB6xVd4RJl+Oh0h+C8FWrM2XaEdsYZM7KR3Ab9o5+XD7RPXh3EO1n4JfAjaGLmXIWZWBE7C6ay1p8VoKCxfykYNVKEfZIO0YTS4Bz4yjrVYVz7n2DjYu0vHRq2BFbqtvDU3BbSQxBdUR3Q+jAWUakOY0D1Z/sMotVjrOZ9fJdq1cw5EFsKOw01P59zbpEolVSpRCDoZCiVYbPh5AwkOgVA9H1A6mMEhWSqxrDL2YRyQvEFzg+LnDNITSLsgfYMaeHoVdiUb3OWL2cAKY+9jo9gH2aC9BvWroEPe3Do1EGltbssSO/UKTvMM7xbYdDgHWdPKVl1ElsBU0K/i3OS4P5gqgQRtfGowPaX+Df4TO30D4XXlhQ==',
@@ -283,12 +288,11 @@ PARTS_ =  (
     (
       "BWV 848b",
       "Johann Sebastian Bach - Prelude and Fugue in C-sharp major (BWV 848) - Fugue"
-    ),
-    (
-      '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'
-    )
+    ),(
+  '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'
+)
   )
 )
 
