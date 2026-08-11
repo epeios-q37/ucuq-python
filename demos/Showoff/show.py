@@ -1,4 +1,4 @@
-import base64
+import base64  # noqa: I001
 import random
 import socket
 import struct
@@ -58,7 +58,7 @@ def getNTPTime_(host="pool.ntp.org"):
     client.settimeout(2)
     client.sendto(msg, address)
     data, _ = client.recvfrom(buf)
-  except Exception as e:
+  except TimeoutError as e:
     raise RuntimeError("Erreur NTP : " + str(e))
 
   t = struct.unpack("!12I", data)[10]

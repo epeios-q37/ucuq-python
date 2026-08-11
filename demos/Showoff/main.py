@@ -108,7 +108,16 @@ def atkPartnerMatrix(dom):
 
 
 def atkShowConnect(dom):
-  offset = show.connect(tuple(dom.getValues(("ShowLeftDevice", "ShowMiddleDevice", "ShowRightDevice")).values()))
+  cont = True
+
+  while cont:
+    cont = False
+    try:
+      offset = show.connect(tuple(dom.getValues(("ShowLeftDevice", "ShowMiddleDevice", "ShowRightDevice")).values()))
+    except RuntimeError as e:
+      dom.alert(f"RuntimeError: {set(e)}")
+      cont = True
+
   dom.executeVoid("toggleFieldsetByLegend('Show', true)")
   
   if abs(offset) >= .9:
