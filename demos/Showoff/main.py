@@ -115,7 +115,7 @@ def atkShowConnect(dom):
     try:
       offset = show.connect(tuple(dom.getValues(("ShowLeftDevice", "ShowMiddleDevice", "ShowRightDevice")).values()))
     except RuntimeError as e:
-      dom.alert(f"RuntimeError: {set(e)}")
+      dom.alert(f"RuntimeError: {e!s}")
       cont = True
 
   dom.executeVoid("toggleFieldsetByLegend('Show', true)")
