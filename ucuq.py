@@ -850,25 +850,22 @@ def ucuqGetInfos():
   return infos
 """
 
+# NOTA: Wokwi works only with PWM freq of 50 Hz !
 WOKWI_KIT_PATCH_SCRIPT_ = f"""
 try:
   with open("diagram.json") as f:
     content = f.read()
   assert '"editor"' in content
   assert '"editor": "wokwi"' in content
-  CONV_ = {tuple((int(255 * math.log(1+i) / math.log(32)) for i in range(32)))}
+  CONV_ = {tuple(int(255 * math.log(1+i) / math.log(32)) for i in range(32))}
   def wc_(color):
-    return (CONV_[min(color[0],31)], CONV_[min(color[1],31)], CONV_[min(color[2],31)])
+    return tuple(CONV_[min(color[i],31)] for i in range(3))
   def sp_(pin):
-    if pin == 0:
-      return 2
-    if pin == 1:
-      return 3
-    return pin
+    return pin if pin >= 2 else pin + 2
   def su_(u16):
-    return 9830 - u16 # Wokks only with PWM freq of 50 Hz !
+    return 9830 - u16
   def sn_(ns):
-    return 3 - ns # Wokks only with PWM freq of 50 Hz !
+    return 3 - ns
 except (OSError, AssertionError):
   def wc_(color):
     return color
@@ -1186,7 +1183,7 @@ class Multi:
   # Workaround for Brython (https://github.com/brython-dev/brython/issues/2590)
   def __bool__(self):
     return True
-
+  
 
 class Device(Device_):  # noqa: F821
   def __new__(cls, id=None, token=None, callback=None):
@@ -1227,21 +1224,14 @@ class Device(Device_):  # noqa: F821
   def __init__(self, *, id=None, token=None, callback=None):  # If id == "", using id and token from config.
     self.pendingModules_ = ["Init-1"]
     self.handledModules_ = []
-    self.commands_ = [
-      "import deflate, io",
-      "gc.collect()",
-      SLEEP_WAIT_SCRIPT_,
-      NTP_SCRIPT_,
-      WOKWI_KIT_PATCH_SCRIPT_,
-      OLED_SCRIPT
-    ]
+    self.commands_ = []
     self.commitBehavior_ = None
     self.timer_ = None
 
     super().__init__(id=id, token=token, callback=callback)
-    
-    if id == "":
-      self.connect(id=None, token=token)
+
+    for script in START_SCRIPTS_:
+      self.addCommand(script)
 
   def __del__(self):
     try:
@@ -3875,3 +3865,12 @@ class ravel:  # act as namespace
   LCD_HEIGHT = 2
 
 ##### End of section dedicated to the Ravel kit #####
+
+START_SCRIPTS_ = (
+  "import deflate, io",
+  "gc.collect()",
+  SLEEP_WAIT_SCRIPT_,
+  NTP_SCRIPT_,
+  WOKWI_KIT_PATCH_SCRIPT_,
+  OLED_SCRIPT
+)

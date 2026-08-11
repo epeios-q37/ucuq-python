@@ -3,24 +3,27 @@ import os, sys
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.extend(("../..","../../atlastk.zip"))
 
+import os  # noqa: I001
 import time
 
-import atlastk  # noqa: F401
+import atlastk
 import ucuq
 
 import colors
 import indy
-import os
 import partner
 import pink
 import show
 import trios
 
-DELAY = 0.5
 
+DELAY_ = 0.5
 DEVICES_ = ("Alfa", "India", "Lima", "Golf")
 SHOW_DEVICES_ = (DEVICES_[0], DEVICES_[2], DEVICES_[1])
-
+"""
+DEVICES_ = ("Papa", "Romeo", "Mike")
+SHOW_DEVICES_ = DEVICES_
+"""
 HTML_OPTION_ = "<option>{}</option>"
 
 
@@ -28,14 +31,14 @@ def combinaisons_(A):
   R = []
   n = len(A)
   for r in range(1, n + 1):
-    def rec(start, prefix):
-      if len(prefix) == r:
+    def rec(start, prefix, targetLen):
+      if len(prefix) == targetLen:
         R.append(" ".join(prefix))
         return
       for i in range(start, n):
-        rec(i + 1, prefix + [A[i]])
+        rec(i + 1, prefix + [A[i]], targetLen)
 
-    rec(0, [])
+    rec(0, [], r)
   return R
 
 
@@ -62,8 +65,12 @@ def atkPartnerBuzzer(dom):
   partner.Buzzer(isPartnerWholeAnimationRequired_(dom))
   
   
-def atkPartnerOLED(dom):
-  partner.OLED(isPartnerWholeAnimationRequired_(dom))
+def atkPartnerOLEDGeo(dom):
+  partner.OLEDGeo(isPartnerWholeAnimationRequired_(dom))
+  
+  
+def atkPartnerOLEDMov(dom):
+  partner.Mov(isPartnerWholeAnimationRequired_(dom))
   
   
 def atkPartnerRing(dom):
@@ -118,25 +125,25 @@ def atkShowTest():
 
 def atkShowIndy(dom):
   devices = show.getDevices()
-  timestamp = show.countdownIfRequested(dom, time.time() + DELAY, devices)
+  timestamp = show.countdownIfRequested(dom, time.time() + DELAY_, devices)
   indy.launch(timestamp, devices)
 
 
 def atkShowPink(dom):
   devices = show.getDevices()
-  timestamp = show.countdownIfRequested(dom, time.time() + DELAY, devices)
+  timestamp = show.countdownIfRequested(dom, time.time() + DELAY_, devices)
   pink.launch(timestamp, devices)
 
 
 def atkShowPlay(dom):
   devices = show.getDevices()
-  timestamp = show.countdownIfRequested(dom, time.time() + DELAY, devices)
+  timestamp = show.countdownIfRequested(dom, time.time() + DELAY_, devices)
   trios.launch(int(dom.getValue("ShowTrios")), timestamp, devices)
 
 
 def atkShowColors(dom):
   devices = show.getDevices()
-  timestamp = show.countdownIfRequested(dom, time.time() + DELAY, devices)
+  timestamp = show.countdownIfRequested(dom, time.time() + DELAY_, devices)
   colors.launch(timestamp, devices)
 
 
