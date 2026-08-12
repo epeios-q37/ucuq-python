@@ -10,6 +10,10 @@ from fractions import Fraction
 
 COMMIT_DELAY_ = 1/4
 LCD_TITLE_DELAY_ = 1/3
+SCROLL_DELAY_ = .15
+FAST_SCROLL_= 4 * ucuq.ravel.OLED_HEIGHT // 5
+START_DELAY_ = SCROLL_DELAY_ * (ucuq.ravel.OLED_HEIGHT - FAST_SCROLL_)
+LCD_WIDTH = ucuq.ravel.LCD_WIDTH
 
 TILDE_CHARMAP_ = (
   0b00000,
@@ -84,7 +88,6 @@ def musicCallback_(note, turn, prev, devices):
 
   if note > 0:
     if not devices.rings[turn].go:
-      devices.lcds[turn].backlightOn()
       devices.rings[turn].go = True
     devices.lcds[turn].moveTo(15, 1).putString(chr(6 + indexes_[turn] % 2) )
     indexes_[turn] += 1
@@ -109,6 +112,8 @@ def getMusicEvents_(voice, turn, prev, devices ):
   events = []
   duration = 0
 
+  events=[(lambda: None, START_DELAY_)]
+
   for note in parseVoice_(decompressVoiceString_(voice)):
     events.append((lambda note = note, turn = turn: musicCallback_(note[0], turn, prev, devices), note[1]))
     duration += note[1]
@@ -124,49 +129,74 @@ def set(dom):
   dom.inner("ShowTrios", html)
 
 
-def oledCallback_(oleds, notes, minNotes, maxNotes):
+def oledDrawNote_(oled, index, note, minNote, maxNote):
+  oled.pixel(128 // 3 * index + 128  // 3 * (note - minNote) // (maxNote - minNote + 1), 0, 1)
+
+
+def oledDrawMarker_(oled, turn, color):
+  oled.hline(128 // 3 * turn, 0, 128 // 3, color)
+
+
+def oledCallback_(oleds, notes, minNotes, maxNotes, start):
+  for i, oled in enumerate(oleds):
+    for j, note in enumerate(notes):
+      minNote = minNotes[j]
+      maxNote = maxNotes[j]
+      if note:
+        oledDrawNote_(oled, j, note, minNote, maxNote)
+  if not start:
+    for i, oled in enumerate(oleds):
+      oledDrawMarker_(oled, i, 1)
+    oleds.show()
+    for i, oled in enumerate(oleds):
+      oledDrawMarker_(oled, i, 0)
+      oledDrawNote_(oled, i, notes[i], minNotes[i], maxNotes[i])
   oleds.scroll(dx=0, dy=1)
   oleds.hline(0, 0 ,128, 0)
-  for note in notes:
-    minNote = minNotes[notes.index(note)]
-    maxNote = maxNotes[notes.index(note)]
-    if note:
-      oleds.pixel(128 // 3 * notes.index(note) + 128  // 3 * (note - minNote) // (maxNote - minNote), 0)
-    for oled in oleds:
-      oled.hline(128 // 3 * oleds.index(oled), 63, 128 // 3, 1)
-  oleds.show()
+
+
+def oledDrawAllMarkers_(oleds):
+  for i, oled in enumerate(oleds):
+    oledDrawMarker_(oled, i, 1)
 
 
 def getOLEDEvents_(part, oleds):
   minNotes = [100] * 3
   maxNotes = [0] * 3
-  minDelay = 100
   cumul = 0
-
-  events = []
-  voices =[]
 
   for voice in part:
     for note in parseVoice_(decompressVoiceString_(voice)):
       minNotes[part.index(voice)] = min(minNotes[part.index(voice)], note[0] if note[0] else minNotes[part.index(voice)])
       maxNotes[part.index(voice)] = max(maxNotes[part.index(voice)], note[0])
-      minDelay = min(minDelay, note[1] if note[1] else minDelay)
 
-  minDelay = max(minDelay, .1)
+  events = []
+  voices =[]
 
   for voice in part:
     voices.append(parseVoice_(decompressVoiceString_(voice)))
 
   while len(voices[0]) and len(voices[1]) and len(voices[2]):
     notes = (voices[0][0][0], voices[1][0][0], voices[2][0][0])
-    events.append((lambda notes = notes: oledCallback_(oleds, notes, minNotes, maxNotes), minDelay))
+    start = cumul < FAST_SCROLL_ * SCROLL_DELAY_
+    events.append((lambda notes = notes, start = start: oledCallback_(oleds, notes, minNotes, maxNotes, start), 0 if start else SCROLL_DELAY_))
     for voice in voices:
-      voice[0][1] -= minDelay
+      voice[0][1] -= SCROLL_DELAY_
       while len(voice) and voice[0][1] <= 0:
         if len(voice) > 2:
           voice[1][1] += voice[0][1]
         del voice[0]
-    cumul += minDelay
+    cumul += SCROLL_DELAY_
+
+  for _ in range(ucuq.ravel.OLED_HEIGHT):
+    events.append(
+      (
+        lambda: (
+          oledDrawAllMarkers_(oleds),
+          oleds.show().hline(0, 0 ,128, 0).scroll(dx=0, dy=1)),
+        SCROLL_DELAY_
+      )
+    )
 
   return events
 
@@ -182,24 +212,62 @@ def getCommitEvents_(duration):
   return events
 
 
-def getLCDTitleEvents_(title, duration, lcds):
-  title = " " * 16 + title.replace("~", chr(5)) + " " * 16
+def getLCDTitleEvent_(title, counter, lcds):
+  return lambda text = title[counter % (len(title) - 3 * LCD_WIDTH):][:3 * LCD_WIDTH]: (
+    lcds[0].moveTo(0,0).putString(text[:LCD_WIDTH]),
+    lcds[1].moveTo(0,0).putString(text[LCD_WIDTH:][:LCD_WIDTH]),
+    lcds[2].moveTo(0,0).putString(text[LCD_WIDTH * 2:][:LCD_WIDTH])
+  )
+
+
+def getPrologLCDTitleEvents_(title, duration, lcds):
+  title = 3 * LCD_WIDTH // 4 * "\06\07\06 " + 3 * (title + LCD_WIDTH * " ")
+  counter = 0
+  events = []
+
+  while duration > 0 and counter < 3 * LCD_WIDTH:
+    events.append(
+      (
+        getLCDTitleEvent_(title, counter, lcds),
+        LCD_TITLE_DELAY_
+      )
+    )
+
+    duration -= LCD_TITLE_DELAY_
+    counter += 1
+
+  return events, duration
+
+
+def getMainLCDTitleEvents_(title, duration, lcds):
+  title = 3 * (title + LCD_WIDTH * " ")
   counter = 0
   events = []
 
   titleLength = len(title)
 
   while duration > 0:
-    events.append((lambda text = title[counter % (titleLength - 16):][:16]: lcds.moveTo(0,0).putString(text), LCD_TITLE_DELAY_))
+    events.append(
+    (
+      getLCDTitleEvent_(title, counter, lcds),
+      LCD_TITLE_DELAY_
+      )
+    )
+
     duration -= LCD_TITLE_DELAY_
     counter += 1
 
   return events
 
 
+def getLCDTitleEvents_(title, duration, lcds):
+  events, duration = getPrologLCDTitleEvents_(title, duration, lcds)
+  return events + getMainLCDTitleEvents_(title, duration, lcds)
+
+
 def getLCDDurationEvents_(duration, lcds):
   lcds.uploadForwardGaugeChars()
-  events=[]
+  events=[(lambda: None, START_DELAY_)]
 
   for i in range(15 * 5 + 1):
     events.append((lambda i = i: lcds.moveTo(0,1).putString(lcds[0].getForwardGauge(i)), duration / (15 * 5 + 1)))
@@ -208,11 +276,10 @@ def getLCDDurationEvents_(duration, lcds):
 
 
 def launch(part, timestamp, devices):
-    devices.lcds.uploadUpwardGaugeChars()
-
-    devices.lcds.createChar(5, TILDE_CHARMAP_)
-    devices.lcds.createChar(6, NOTE1_CHARMAP_)
-    devices.lcds.createChar(7, NOTE2_CHARMAP_)
+    devices.lcds.uploadUpwardGaugeChars()\
+      .createChar(5, TILDE_CHARMAP_)\
+      .createChar(6, NOTE1_CHARMAP_)\
+      .createChar(7, NOTE2_CHARMAP_)
 
     for index, ring in enumerate(devices.rings):
         ring.turn = index
@@ -235,10 +302,12 @@ def launch(part, timestamp, devices):
         maxDuration = max(maxDuration, duration)
 
     eventList.append(getCommitEvents_(maxDuration))
-    eventList.append(getLCDTitleEvents_(PARTS_[part][0][1], maxDuration, devices.lcds))
+    eventList.append(getLCDTitleEvents_(PARTS_[part][0][1].replace("~", chr(5)), maxDuration + START_DELAY_, devices.lcds))
     eventList.append(getLCDDurationEvents_(maxDuration, devices.lcds))
 
     cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
+
+    devices.lcds.backlightOn()
 
     timestamp += ucuq.playEvents(
       eventList,

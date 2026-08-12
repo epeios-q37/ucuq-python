@@ -1877,7 +1877,8 @@ class WS2812(Core_):
       else:
         command = ""
         for diff in diffs:
-          command += f"{self.getObject()}.__setitem__({diff[0]},{conv(diff[1])})\n"
+#          command += f"{self.getObject()}.__setitem__({diff[0]},{conv(diff[1])})\n"
+          command += f"{self.getObject()}[{diff[0]}]={conv(diff[1])}\n"
         self.addCommand(command)
       return self.straightWrite()
     else:
