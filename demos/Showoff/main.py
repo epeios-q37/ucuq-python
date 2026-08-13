@@ -18,6 +18,7 @@ import trios
 
 
 DELAY_ = 0.5
+
 DEVICES_ = ("Alfa", "India", "Lima", "Golf")
 SHOW_DEVICES_ = (DEVICES_[0], DEVICES_[2], DEVICES_[1])
 """

@@ -213,10 +213,12 @@ def getCommitEvents_(duration):
 
 
 def getLCDTitleEvent_(title, counter, lcds):
-  return lambda text = title[counter % (len(title) - 3 * LCD_WIDTH):][:3 * LCD_WIDTH]: (
-    lcds[0].moveTo(0,0).putString(text[:LCD_WIDTH]),
-    lcds[1].moveTo(0,0).putString(text[LCD_WIDTH:][:LCD_WIDTH]),
-    lcds[2].moveTo(0,0).putString(text[LCD_WIDTH * 2:][:LCD_WIDTH])
+  string = title[counter % (len(title) - 3 * LCD_WIDTH):][:3 * LCD_WIDTH]
+
+  return lambda: (
+    lcds[0].moveTo(0,0).putString(string[:LCD_WIDTH]),
+    lcds[1].moveTo(0,0).putString(string[LCD_WIDTH:][:LCD_WIDTH]),
+    lcds[2].moveTo(0,0).putString(string[LCD_WIDTH * 2:][:LCD_WIDTH])
   )
 
 
@@ -243,8 +245,6 @@ def getMainLCDTitleEvents_(title, duration, lcds):
   title = 3 * (title + LCD_WIDTH * " ")
   counter = 0
   events = []
-
-  titleLength = len(title)
 
   while duration > 0:
     events.append(
