@@ -329,6 +329,7 @@ def getWebFileContent(url):
 def getKits():
   pass# With Python, the kits are already retrieved.
 
+OLED_SHOW_DEFAULT_COMPRESS_VALUE = True
 ###############
 # COMMON PART #
 ###############
@@ -2606,7 +2607,7 @@ class _OLED_(Core_):
     return self.fill(0).show()
 
 OLED_SCRIPT = """
-def oled_show(self, buffer):
+def oled_show(self, buffer, compressed = True):
   x0 = 0
   x1 = self.width - 1
   if self.width == 64:
@@ -2621,7 +2622,11 @@ def oled_show(self, buffer):
   self.write_cmd(const(0x22))
   self.write_cmd(0)
   self.write_cmd(self.pages - 1)
-  self.write_data(deflate.DeflateIO(io.BytesIO(ubinascii.a2b_base64(buffer)), deflate.AUTO, 10).read())
+  if compressed:
+    with deflate.DeflateIO(io.BytesIO(ubinascii.a2b_base64(buffer)), deflate.RAW, 10) as decompressor:
+      self.write_data(decompressor.read())
+  else:
+    self.write_data(ubinascii.a2b_base64(buffer))
 """
 
 class OLED_(Core_, FrameBuffer):
@@ -2633,12 +2638,16 @@ class OLED_(Core_, FrameBuffer):
     Core_.__init__(self, device)
     FrameBuffer.__init__(self, self.buffer, self.width, self.height, MONO_VLSB)
   
-  def show(self, compress = True):
-    command = f'oled_show({self.getObject()}, "{base64.b64encode(zlib.compress(self.buffer, level = 9)).decode("ascii")}")'
-#    print(command)
-    self.addCommand(command)
+  def show(self, compress = OLED_SHOW_DEFAULT_COMPRESS_VALUE):
+    # 'compress' can not be set to True for Brython due to https://github.com/brython-dev/brython/issues/2910
+    if compress:
+      compressor = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-10)
+      command = f'oled_show({self.getObject()}, "{base64.b64encode(compressor.compress(self.buffer) + compressor.flush()).decode("ascii")}")'
+    else:
+      command = f'oled_show({self.getObject()}, "{base64.b64encode(self.buffer).decode("ascii")}", False)'
 
-    return self
+    # print(command)
+    return self.addCommand(command)
 
   def show_(self, compress = True):
     if compress:

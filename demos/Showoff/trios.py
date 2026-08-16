@@ -10,9 +10,10 @@ from fractions import Fraction
 
 COMMIT_DELAY_ = 1/4
 LCD_TITLE_DELAY_ = 1/3
-SCROLL_DELAY_ = .15
-FAST_SCROLL_= 4 * ucuq.ravel.OLED_HEIGHT // 5
-START_DELAY_ = SCROLL_DELAY_ * (ucuq.ravel.OLED_HEIGHT - FAST_SCROLL_)
+START_SCROLL_DELAY_ = .05
+REGULAR_SCROLL_DELAY_ = .15
+FAST_SCROLL_= 9 * ucuq.ravel.OLED_HEIGHT // 10
+START_DELAY_ = (FAST_SCROLL_ * START_SCROLL_DELAY_) + REGULAR_SCROLL_DELAY_ * (ucuq.ravel.OLED_HEIGHT - FAST_SCROLL_)
 LCD_WIDTH = ucuq.ravel.LCD_WIDTH
 
 TILDE_CHARMAP_ = (
@@ -137,20 +138,24 @@ def oledDrawMarker_(oled, turn, color):
   oled.hline(128 // 3 * turn, 0, 128 // 3, color)
 
 
-def oledCallback_(oleds, notes, minNotes, maxNotes, start):
+def oledCallback_(oleds, notes, minNotes, maxNotes):
   for i, oled in enumerate(oleds):
     for j, note in enumerate(notes):
       minNote = minNotes[j]
       maxNote = maxNotes[j]
       if note:
         oledDrawNote_(oled, j, note, minNote, maxNote)
-  if not start:
-    for i, oled in enumerate(oleds):
-      oledDrawMarker_(oled, i, 1)
-    oleds.show()
-    for i, oled in enumerate(oleds):
-      oledDrawMarker_(oled, i, 0)
-      oledDrawNote_(oled, i, notes[i], minNotes[i], maxNotes[i])
+
+  for i, oled in enumerate(oleds):
+    oledDrawMarker_(oled, i, 1)
+  oleds.show()
+
+  for i, oled in enumerate(oleds):
+    note = notes[i]
+    oledDrawMarker_(oled, i, 0)
+    if note:
+      oledDrawNote_(oled, i, note, minNotes[i], maxNotes[i])
+
   oleds.scroll(dx=0, dy=1)
   oleds.hline(0, 0 ,128, 0)
 
@@ -178,15 +183,15 @@ def getOLEDEvents_(part, oleds):
 
   while len(voices[0]) and len(voices[1]) and len(voices[2]):
     notes = (voices[0][0][0], voices[1][0][0], voices[2][0][0])
-    start = cumul < FAST_SCROLL_ * SCROLL_DELAY_
-    events.append((lambda notes = notes, start = start: oledCallback_(oleds, notes, minNotes, maxNotes, start), 0 if start else SCROLL_DELAY_))
+    start = cumul < FAST_SCROLL_ * REGULAR_SCROLL_DELAY_
+    events.append((lambda notes = notes, start = start: oledCallback_(oleds, notes, minNotes, maxNotes), START_SCROLL_DELAY_ if start else REGULAR_SCROLL_DELAY_))
     for voice in voices:
-      voice[0][1] -= SCROLL_DELAY_
+      voice[0][1] -= REGULAR_SCROLL_DELAY_
       while len(voice) and voice[0][1] <= 0:
         if len(voice) > 2:
           voice[1][1] += voice[0][1]
         del voice[0]
-    cumul += SCROLL_DELAY_
+    cumul += REGULAR_SCROLL_DELAY_
 
   for _ in range(ucuq.ravel.OLED_HEIGHT):
     events.append(
@@ -194,7 +199,7 @@ def getOLEDEvents_(part, oleds):
         lambda: (
           oledDrawAllMarkers_(oleds),
           oleds.show().hline(0, 0 ,128, 0).scroll(dx=0, dy=1)),
-        SCROLL_DELAY_
+        REGULAR_SCROLL_DELAY_
       )
     )
 
