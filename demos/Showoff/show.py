@@ -22,27 +22,14 @@ devices_ = None
 def setDevices_():
   devices = types.SimpleNamespace()
 
-  devices.rings = Ring_()
-  devices.ravel = ucuq.Ravel(ring=devices.rings, create = True)
-
-  devices.buzzers, devices.lcds, devices.oleds = devices.ravel.get("BLO")
+  devices.ravel = ucuq.Ravel()
+  devices.buzzers, devices.rings, devices.lcds, devices.oleds = devices.ravel.get("BRLO")
 
   return devices
 
 
 def getDevices():
   return devices_
-
-
-indexes = [random.randrange(len(RAINBOW_)) for i in range(3)]
-
-class Ring_(ucuq.ravel.Ring):
-  def setValue(self, index, color = None):
-    if hasattr(self, "go") and not self.go:
-      return self
-    if hasattr(self, "turn") and color is None:
-      color = getRainbowColor_(indexes[self.turn])
-    return super().setValue(index, color)
 
 
 def getNTPTime_(host="pool.ntp.org"):
