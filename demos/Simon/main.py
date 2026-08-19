@@ -267,7 +267,7 @@ def atk(dom):
 
   if not hw:
     ucuq.setCommitBehavior(ucuq.CB_MANUAL)
-    hw= ucuq.Multi(HW(ucuq.ATKConnect(dom, body)))
+    hw = ucuq.Multi(HW(ucuq.ATKConnect(dom, body)))
   else:
     dom.inner("", body)
 

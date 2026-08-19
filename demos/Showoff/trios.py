@@ -96,14 +96,14 @@ def musicCallback_(note, turn, prev, counter, devices):
   else:
     prev[turn] = note
 
+  buzzer.play(note)
+
   if note > 0:
     if not devices.tracking.go[turn]:
       devices.tracking.go[turn] = True
     devices.lcds[turn].moveTo(15, 1).putString(chr(6 + counter % 2) )
   else:
     devices.lcds[turn].moveTo(15, 1).putString(" ")
-
-  buzzer.play(note)
 
   spots = MAP_[turn]
   

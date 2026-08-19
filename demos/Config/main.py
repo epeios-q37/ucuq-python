@@ -199,11 +199,10 @@ def atkSave(dom):
         dom.alert(dom.getL10N(6))
         dom.focus(W_PORT)
         return
-    elif port:
-      if not host:
-        dom.alert(dom.getL10n(7))
-        dom.focus(W_HOST)
-        return
+    elif port and not host:
+      dom.alert(dom.getL10n(7))
+      dom.focus(W_HOST)
+      return
 
     proxyConfig[K_PROXY_HOST] = host
     proxyConfig[K_PROXY_PORT] = port
