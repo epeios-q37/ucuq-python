@@ -4,7 +4,7 @@ import ucuq
 
 STEP_MIN_ = 100
 STEP_MAX_ = 250
-DURATION_ = 15
+DURATION_ = 10
 DELAY_ = 1 / 10
 COMMIT_DELAY_ = 1 / 8
 MAX_ = ucuq.ravel.SERVO_MAX
