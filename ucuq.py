@@ -1558,6 +1558,8 @@ def ATKConnect(dom, body, *, target="", device=None):
 
   return infos
 
+def isDeviceAvailable():
+  return device_ != None
 
 def getDevice(*, tokenId=None, device=None):
   if device and tokenId:
@@ -2459,7 +2461,7 @@ class Servo(Multi_):
       if not specs:
         raise Exception("'domain' can not be given without 'specs'!")
 
-  def __init__(self, pwm=None, specs=None, /, *, tweak=None, domain=None, smooth = False):
+  def __init__(self, pwm=None, specs=None, /, *, tweak=None, domain=None, smooth=False):
     super().__init__()
 
     self.test_(specs, tweak, domain)
@@ -2468,9 +2470,9 @@ class Servo(Multi_):
     self.u16_ = None
 
     if pwm:
-      self.init(pwm, specs, smooth = smooth, tweak=tweak, domain=domain)
+      self.init(pwm, specs, smooth=smooth, tweak=tweak, domain=domain)
 
-  def init(self, pwm, specs, *, tweak=None, domain=None, smooth = False, extra=True):
+  def init(self, pwm, specs, *, tweak=None, domain=None, smooth=False, extra=True):
     self.test_(specs, tweak, domain)
 
     if not tweak:
@@ -3757,10 +3759,10 @@ class kit_: # Act as namespace.
     pass
   
   class Servo180(Servo):
-    def __init__(self, pin, rest, device = None, extra = True):
+    def __init__(self, pin, rest, smooth=False, device=None, extra=True):
       self.rest_ = rest
       pwm = PWM(pin, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))")
-      super().__init__(pwm, Servo.Specs(1638, 8192, 180))
+      super().__init__(pwm, Servo.Specs(1638, 8192, 180), smooth=smooth)
       self.flash()
 
     def park(self):
@@ -3789,8 +3791,8 @@ class Ravel:
     self.ring_ = cls.init_(create, ring, lambda : ravel.Ring(ringOffset, device, extra))
     self.oled_ = cls.init_(create, oled, lambda : ravel.OLED(device, extra))
     self.lcd_ = cls.init_(create, lcd, lambda : ravel.LCD(device, extra))
-    self.upper_ =  cls.init_(create, upper, lambda : ravel.Upper(device, extra))
-    self.lower_ =  cls.init_(create, lower, lambda : ravel.Lower(device, extra))
+    self.upper_ =  cls.init_(create, upper, lambda : ravel.Upper(False, device, extra))
+    self.lower_ =  cls.init_(create, lower, lambda : ravel.Lower(False, device, extra))
     
   def raz(self):
     self.__init__(self.ring_.getOffset())
@@ -3841,16 +3843,16 @@ class Ravel:
 
 class ravel_:  # act as namespace
   class Upper(kit_.Servo180):
-    def __init__(self, device=None, extra=True):
-      return super().__init__(0, ravel.SERVO_MAX, device, extra)
+    def __init__(self, smooth=False, device=None, extra=True):
+      super().__init__(0, ravel.SERVO_MAX, smooth, device, extra)
     
     def flash(self):
       self.setSmooth(ravel.SERVO_MAX - 500)
       self.park()
   
   class Lower(kit_.Servo180):
-    def __init__(self, device=None, extra=True):
-      return super().__init__(1, 0, device, extra)
+    def __init__(self, smooth=False, device=None, extra=True):
+      super().__init__(1, 0, smooth, device, extra)
     
     def flash(self):
       self.setSmooth(500)
@@ -3880,12 +3882,12 @@ class ravel:  # act as namespace
       return super().__new__(BaseClassPatch_(cls, ravel.LCD), 16, 2, SoftI2C(6, 7, device=device), extra=extra)
     
   class Upper(ravel_.Upper):
-    def __new__(cls, device=None, extra=True):
-      return super().__new__(BaseClassPatch_(cls, ravel.Upper), device=device, extra=extra)
+    def __new__(cls, smooth=False, device=None, extra=True):
+      return super().__new__(BaseClassPatch_(cls, ravel.Upper), smooth=smooth, device=device, extra=extra)
     
   class Lower(ravel_.Lower):
-    def __new__(cls, device=None, extra=True):
-      return super().__new__(BaseClassPatch_(cls, ravel.Lower), device=device, extra=extra)
+    def __new__(cls, smooth=False, device=None, extra=True):
+      return super().__new__(BaseClassPatch_(cls, ravel.Lower), smooth=smooth, device=device, extra=extra)
     
   @staticmethod
   def get(list):
@@ -3918,6 +3920,8 @@ class ravel:  # act as namespace
   RING_SIZE = 8
   OLED_WIDTH = 128
   OLED_HEIGHT = 64
+  OLED_BLACK = 0
+  OLED_WHITE = 1
   LCD_WIDTH = 16
   LCD_HEIGHT = 2
 
