@@ -343,7 +343,9 @@ import json
 import math
 import re
 import string
+import sys
 import time
+import types
 import zlib
 
 import atlastk
@@ -568,7 +570,7 @@ _OPS = {
 }
 
 
-class FrameBuffer:
+class FrameBuffer_:
   def __init__(self, buffer, width, height, format, stride=None):
     if format not in _OPS:
       raise ValueError("format de pixel inconnu")
@@ -582,15 +584,19 @@ class FrameBuffer:
   def pixel(self, x, y, c=None):
     if x < 0 or x >= self.width or y < 0 or y >= self.height:
       return None
+    
     if c is None:
       return self._get(self, x, y)
+    
     self._set(self, x, y, c)
-    return None
+    return self
 
   def fill(self, c):
-    self.fill_rect(0, 0, self.width, self.height, c)
+    self.fillRect_(0, 0, self.width, self.height, c)
 
-  def fill_rect(self, x, y, w, h, c):
+    return self
+
+  def fillRect_(self, x, y, w, h, c):
     if w < 1 or h < 1 or x + w <= 0 or y + h <= 0 or x >= self.width or y >= self.height:
       return
     xend = min(self.width, x + w)
@@ -602,22 +608,26 @@ class FrameBuffer:
       for xx in range(x, xend):
         set_(self, xx, yy, c)
 
-  def hline(self, x, y, w, c):
-    self.fill_rect(x, y, w, 1, c)
+    return self
 
-  def vline(self, x, y, h, c):
-    self.fill_rect(x, y, 1, h, c)
+  def hLine(self, x, y, w, c):
+    return self.fillRect_(x, y, w, 1, c)
+
+  def vLine(self, x, y, h, c):
+    return self.fillRect_(x, y, 1, h, c)
 
   def rect(self, x, y, w, h, c, f=False):
     if w < 1 or h < 1:
       return
     if f:
-      self.fill_rect(x, y, w, h, c)
+      self.fillRect_(x, y, w, h, c)
     else:
-      self.fill_rect(x, y, w, 1, c)
-      self.fill_rect(x, y + h - 1, w, 1, c)
-      self.fill_rect(x, y, 1, h, c)
-      self.fill_rect(x + w - 1, y, 1, h, c)
+      self.fillRect_(x, y, w, 1, c)
+      self.fillRect_(x, y + h - 1, w, 1, c)
+      self.fillRect_(x, y, 1, h, c)
+      self.fillRect_(x + w - 1, y, 1, h, c)
+
+    return self
 
   def line(self, x0, y0, x1, y1, c):
     dx = abs(x1 - x0)
@@ -627,7 +637,7 @@ class FrameBuffer:
     err = dx + dy
     x, y = x0, y0
     while True:
-      FrameBuffer.pixel(self, x, y, c)
+      self.pixel(x, y, c)
       if x == x1 and y == y1:
         break
       e2 = 2 * err
@@ -637,6 +647,8 @@ class FrameBuffer:
       if e2 <= dx:
         err += dx
         y += sy
+
+    return self    
 
   def ellipse(self, cx, cy, xr, yr, c, f=False, m=0x0F):
     if xr <= 0 or yr <= 0:
@@ -652,15 +664,17 @@ class FrameBuffer:
 
       if f:
         if m & quad_right:
-          FrameBuffer.hline(self, cx, cy + dy, int(round(span)) + 1, c)
+          self.hLine(cx, cy + dy, round(span) + 1, c)
         if m & quad_left:
-          FrameBuffer.hline(self, cx - int(round(span)), cy + dy, int(round(span)) + 1, c)
+          self.hLine(cx - round(span), cy + dy, round(span) + 1, c)
       else:
-        xi = int(round(span))
+        xi = round(span)
         if m & quad_right:
-          FrameBuffer(self, cx + xi, cy + dy, c)
+          self.pixel(cx + xi, cy + dy, c)
         if m & quad_left:
-          FrameBuffer.pixel(self, cx - xi, cy + dy, c)
+          self.pixel(cx - xi, cy + dy, c)
+
+    return self
 
   def poly(self, x, y, coords, c, f=False):
     n = len(coords) // 2
@@ -668,14 +682,16 @@ class FrameBuffer:
       return
     pts = [(x + coords[2 * i], y + coords[2 * i + 1]) for i in range(n)]
     if f:
-      self._fill_poly(pts, c)
+      self.fillPoly_(pts, c)
     else:
       for i in range(n):
         x0, y0 = pts[i]
         x1, y1 = pts[(i + 1) % n]
-        FrameBuffer.line(self,x0, y0, x1, y1, c)
+        self.line(x0, y0, x1, y1, c)
 
-  def _fill_poly(self, pts, c):
+    return self
+
+  def fillPoly_(self, pts, c):
     n = len(pts)
     ys = [p[1] for p in pts]
     ymin, ymax = min(ys), max(ys)
@@ -691,15 +707,19 @@ class FrameBuffer:
           xs.append(x0 + t * (x1 - x0))
       xs.sort()
       for i in range(0, len(xs) - 1, 2):
-        xstart = int(round(xs[i]))
-        xend = int(round(xs[i + 1]))
-        FrameBuffer.hline(self, xstart, yy, max(xend - xstart, 1), c)
+        xstart = round(xs[i])
+        xend = round(xs[i + 1])
+        self.hLine(xstart, yy, max(xend - xstart, 1), c)
+
+    return self
 
   def text(self, s, x, y, c=1):
     for i, ch in enumerate(s):
-      self._draw_char(ch, x + i * 8, y, c)
+      self.drawChar_(ch, x + i * 8, y, c)
 
-  def _draw_char(self, ch, x, y, c):
+    return self
+
+  def drawChar_(self, ch, x, y, c):
     o = ord(ch)
     if o < 32 or o > 127:
       return
@@ -711,27 +731,31 @@ class FrameBuffer:
         continue
       for row in range(8):
         if byte & (1 << row):
-          FrameBuffer.pixel(self, x + col, y + row, c)
+          self.pixel(x + col, y + row, c)
 
-  def scroll(self, xstep, ystep):
-    if xstep < 0:
-      sx, xend, dx = 0, self.width + xstep, 1
-    else:
-      sx, xend, dx = self.width - 1, xstep - 1, -1
-    if ystep < 0:
-      sy, yend, dy = 0, self.height + ystep, 1
-    else:
-      sy, yend, dy = self.height - 1, ystep - 1, -1
+      return self
 
-    y = sy
+  def scroll(self, dx, dy):
+    if dx < 0:
+      xstart, xend, xdelta = 0, self.width + dx, 1
+    else:
+      xstart, xend, xdelta = self.width - 1, dx - 1, -1
+    if dy < 0:
+      ystart, yend, ydelta = 0, self.height + dy, 1
+    else:
+      ystart, yend, ydelta = self.height - 1, dy - 1, -1
+
+    y = ystart
     while y != yend:
-      x = sx
+      x = xstart
       while x != xend:
-        src = FrameBuffer.pixel(self, x - xstep, y - ystep)
+        src = self.pixel(x - dx, y - dy)
         if src is not None:
-          FrameBuffer.pixel(self, x, y, src)
-        x += dx
-      y += dy
+          self.pixel(x, y, src)
+        x += xdelta
+      y += ydelta
+
+    return self
 
   def blit(self, fbuf, x, y, key=-1, palette=None):
     for j in range(fbuf.height):
@@ -747,7 +771,9 @@ class FrameBuffer:
           continue
         if palette is not None:
           src = palette.pixel(src, 0)
-        FrameBuffer.pixel(self, xx, yy, src)
+        self.pixel(xx, yy, src)
+
+    return self
 
 ##################################################################
 ##### End of reimplementation form MicroPython's framebuffer #####
@@ -1327,10 +1353,10 @@ class Device(Device_):  # noqa: F821
       
     self.addCommand(f"sleepWait({getObject_(self.timer_)}, {secs * 1000000})")
 
-  def sleep(self, secs):
-    self.addCommand(f"time.sleep_us({int(secs * 1_000_000)})")
+  def sleep(self, delay):
+    self.addCommand(f"time.sleep_us({int(delay * 1_000_000)})")
     
-  def ntpSetTime(self):
+  def ntpSync(self):
     self.addCommand("ntp_set_time()")
     
   def ntpSleepUntil(self, timestamp):
@@ -1338,12 +1364,8 @@ class Device(Device_):  # noqa: F821
     # self.addCommand(f"time.sleep_us({int(timestamp * 1_000_000)} - precise_time_us())")
     self.addCommand(f"sleep_until_us({int(timestamp * 1_000_000)})")
       
-  def ntpSleep(self, delay):
-    self.addCommand(f"time.sleep_us({int(delay * 1_000_000)})")
-    
   def ntpTime(self):
     return self.commit("precise_time_us()") / 1_000_000
-    
 
 
 def getBaseInfos_(device=None):
@@ -1697,16 +1719,12 @@ class Core_:
     self.device_.sleep(secs)
     return self
   
-  def ntpSetTime(self):
-    self.device_.ntpSetTime()
+  def ntpSync(self):
+    self.device_.ntpSync()
     return self
   
   def ntpSleepUntil(self, timestamp):
     self.device_.ntpSleepUntil(timestamp)
-    return self
-    
-  def ntpSleep(self, delay):
-    self.device_.ntpSleep(delay)
     return self
     
   def ntpTime(self):
@@ -2594,72 +2612,6 @@ def hexImageToBytearray_(hex_string, width=128, height=64):
 
   return out
 
-
-class _OLED_(Core_):
-  def show(self):
-    return self.addMethods("show()")
-
-  def powerOff(self):
-    return self.addMethods("poweroff()")
-
-  def powerOn(self):
-    return self.addMethods("poweron()")
-
-  def contrast(self, contrast):
-    return self.addMethods(f"contrast({contrast})")
-
-  def invert(self, invert):
-    return self.addMethods(f"invert({invert})")
-
-  def fill(self, col):
-    return self.addMethods(f"fill({col})")
-
-  def pixel(self, x, y, col=1):
-    return self.addMethods(f"pixel({x},{y},{col})")
-
-  def scroll(self, dx, dy):
-    return self.addMethods(f"scroll({dx},{dy})")
-
-  def text(self, string, x, y, col=1):
-    return self.addMethods(f"text('{string}',{x}, {y}, {col})")
-
-  def hText(self, string, y, col=1, trueWidth=None):
-    trueWidth = trueWidth or f"{self.getObject()}.width"
-    return self.addMethods(
-      f"text('{string}',max(( {trueWidth} - len('{string}' ) * 8) // 2, 0), {y}, {col})"
-    )
-
-  def rect(self, x, y, w, h, col, fill=False):
-    return self.addMethods(f"rect({x},{y},{w},{h},{col},{fill})")
-
-  def hline(self, x, y, w, col):
-    return self.addMethods(f"hline({x},{y},{w},{col})")
-
-  def vline(self, x, y, h, col):
-    return self.addMethods(f"vline({x},{y},{h},{col})")
-
-  def line(self, x1, y1, x2, y2, col):
-    return self.addMethods(f"line({x1},{y1},{x2},{y2},{col})")
-
-  def ellipse(self, x, y, rx, ry, col, fill=False, quad=15):
-    return self.addMethods(f"ellipse({x},{y},{rx},{ry},{col},{fill},{quad})")
-  
-  def draw(self, pattern, width, ox=0, oy=0, mul=1, compress=True):
-    if width % 4:
-      raise Exception("'width' must be a multiple of 4!")
-    if width == 128 and ox == 0 and oy == 0 and mul == 1 and len(pattern) >= 2048:
-      if compress:
-        return self.addMethods(f'buffer[:] = deflate.DeflateIO(io.BytesIO(ubinascii.a2b_base64("{base64.b64encode(gzip.compress(hexImageToBytearray_(pattern), compresslevel = 9)).decode("ascii")}")), deflate.AUTO, 10).read()')
-      else:
-        return self.addMethods(f'buffer[:] = ubinascii.a2b_base64("{base64.b64encode(hexImageToBytearray_(pattern)).decode("ascii")}")')
-    else:
-      return self.addMethods(f"draw('{pattern}',{width},{ox},{oy},{mul})")
-
-  def flash(self, extra=True):
-    self.fill(1).show()
-    self.getDevice().sleep(FLASH_DELAY_ if isinstance(extra, bool) else extra)
-    return self.fill(0).show()
-
 OLED_SCRIPT = """
 def oled_show(self, buffer, compressed = True):
   x0 = 0
@@ -2683,14 +2635,14 @@ def oled_show(self, buffer, compressed = True):
     self.write_data(ubinascii.a2b_base64(buffer))
 """
 
-class OLED_(Core_, FrameBuffer):
+class OLED_(Core_, FrameBuffer_):
   def __init__(self, width, height, device = None):
     self.width = width
     self.height = height
     self.pages = self.height // 8
     self.buffer = bytearray(self.pages * self.width)
     Core_.__init__(self, device)
-    FrameBuffer.__init__(self, self.buffer, self.width, self.height, MONO_VLSB)
+    FrameBuffer_.__init__(self, self.buffer, self.width, self.height, MONO_VLSB)
   
   def show(self, compress = OLED_SHOW_DEFAULT_COMPRESS_VALUE):
     # 'compress' can not be set to True for Brython due to https://github.com/brython-dev/brython/issues/2910
@@ -2703,7 +2655,7 @@ class OLED_(Core_, FrameBuffer):
     # print(command)
     return self.addCommand(command)
 
-  def show_(self, compress = True):
+  def _show(self, compress = True):
     if compress:
       self.addMethods(f'buffer[:] = deflate.DeflateIO(io.BytesIO(ubinascii.a2b_base64("{base64.b64encode(gzip.compress(self.buffer, compresslevel = 9)).decode("ascii")}")), deflate.AUTO, 10).read()')
     else:
@@ -2723,55 +2675,10 @@ class OLED_(Core_, FrameBuffer):
   def invert(self, invert):
     return self.addMethods(f"invert({invert})")
 
-  def fill(self, col):
-    FrameBuffer.fill(self, col)
-
-    return self
-
-  def pixel(self, x, y, col=1):
-    FrameBuffer.pixel(self, x, y, col)
-
-    return self
-
-  def scroll(self, dx, dy):
-    FrameBuffer.scroll(self, dx, dy)
-
-    return self
-
-  def text(self, string, x, y, col=1):
-    FrameBuffer.text(self, string, x, y, col)
-
-    return self
-
   def hText(self, string, y, col=1, trueWidth=None):
     trueWidth = trueWidth or self.width
 
-    return FrameBuffer.text(self, string, max(( {trueWidth} - len(string) * 8) // 2, 0), y, col)
-  
-  def rect(self, x, y, w, h, col, fill=False):
-    FrameBuffer.rect(self, x, y, w, h, col, fill)
-
-    return self
-
-  def hline(self, x, y, w, col):
-    FrameBuffer.hline(self, x, y, w, col)
-
-    return self
-
-  def vline(self, x, y, h, col):
-    FrameBuffer.vline(self, x, y, h, col)
-
-    return self
-
-  def line(self, x1, y1, x2, y2, col):
-    FrameBuffer.line(self, x1, y1, x2, y2, col)
-
-    return self
-
-  def ellipse(self, x, y, rx, ry, col, fill=False, quad=15):
-    FrameBuffer.ellipse(self, x, y, rx, ry, col, fill, quad)
-
-    return self
+    return FrameBuffer_.text(self, string, max(( {trueWidth} - len(string) * 8) // 2, 0), y, col)
   
   def draw(self, pattern, width, ox=0, oy=0, mul=1):
     if width % 4:
@@ -3059,6 +2966,94 @@ class SSD1680_SPI(OLED_):
     return super().hText(*args, trueWidth=trueWidth or 250, **kargs)
 
 
+def indexTwoDimensionalArray_(inputArray):
+  rowCount = len(inputArray)
+  colCount = len(inputArray[0]) if rowCount > 0 else 0
+  
+  # Initialisation du compteur à 1
+  counter = 1
+  outputArray = []
+  
+  for r in range(rowCount):
+    rowList = []
+    for c in range(colCount):
+      rowList.append(counter)
+      counter += 1
+    outputArray.append(rowList)
+    
+  return outputArray
+
+
+def splitFrameBuffer_(globalFb, layout, screenDim):
+  screenWidth, screenHeight = screenDim
+  pixelFormat = globalFb.format
+  
+  rowCount = len(layout)
+  colCount = len(layout[0]) if rowCount > 0 else 0
+  
+  # Calcul de la taille du bytearray selon le format (1, 2, 4, 8 ou 16 bits)
+  totalPixels = screenWidth * screenHeight
+  if pixelFormat in (0, 1, 2):  # MONO_VLSB, MONO_HLSB, MONO_HMSB (1 bit)
+    bufferSize = (totalPixels + 7) // 8
+  elif pixelFormat == 3:        # GS2_HMSB (2 bits)
+    bufferSize = (totalPixels + 3) // 4
+  elif pixelFormat == 4:        # GS4_HMSB (4 bits)
+    bufferSize = (totalPixels + 1) // 2
+  elif pixelFormat == 5:        # GS8 (8 bits)
+    bufferSize = totalPixels
+  elif pixelFormat == 6:        # RGB565 (16 bits)
+    bufferSize = totalPixels * 2
+  else:
+    raise ValueError("Unsupported FrameBuffer format")
+
+  fbMatrix = []
+  for r in range(rowCount):
+    rowList = []
+    for c in range(colCount):
+      # Allocation directe à la bonne taille
+      screenBuffer = bytearray(bufferSize)
+      localFb = FrameBuffer_(screenBuffer, screenWidth, screenHeight, pixelFormat)
+      rowList.append(localFb)
+    fbMatrix.append(rowList)
+    
+  # Transfert des pixels
+  for r in range(rowCount):
+    for c in range(colCount):
+      targetFb = fbMatrix[r][c]
+      xOffset = c * screenWidth
+      yOffset = r * screenHeight
+      
+      for localY in range(screenHeight):
+        globalY = yOffset + localY
+        if globalY >= globalFb.height:
+          break
+          
+        for localX in range(screenWidth):
+          globalX = xOffset + localX
+          if globalX >= globalFb.width:
+            break
+            
+          pixelValue = globalFb.pixel(globalX, globalY)
+          targetFb.pixel(localX, localY, pixelValue)
+          
+  return fbMatrix
+
+
+class OLEDS_Wall(FrameBuffer_):
+  def __init__(self, oleds):
+    self.oleds_ = oleds
+    self.layout_ = indexTwoDimensionalArray_(oleds)
+
+    super().__init__(bytearray(len(oleds) * len(oleds[0]) * ravel.OLED_WIDTH * ravel.OLED_HEIGHT // 8), len(oleds[0]) * ravel.OLED_WIDTH, len(oleds) * ravel.OLED_HEIGHT, MONO_VLSB)
+
+  def show(self):
+    buffers = splitFrameBuffer_(self, self.layout_, (ravel.OLED_WIDTH, ravel.OLED_HEIGHT))
+
+    for i, hbuffers in enumerate(buffers):
+      for j, vbuffer in enumerate(hbuffers):
+        self.oleds_[i][j].blit(vbuffer, 0, 0).show()
+
+
 def pwmJumps(jumps, step=100, delay=0.05):
   command = "pwmJumps([\n"
 
@@ -3213,29 +3208,34 @@ def voicesExtractNotes_(voice_str):
   return re.findall(r'([A-Z\-][b#]?\d\d\.*,?|[R\-]\d\.*,?)', voice_str)
 
 
-def playEvents(polyEvents, durationCallback):
-  cumul = 0
+def playEvents(polyEvents, durationCallback, **kwargs):
+  tracking = types.SimpleNamespace(cumul =  0, eventsAmounts=[0] * len(polyEvents))
+  user = types.SimpleNamespace(**kwargs)
 
   indexes = [0] * len(polyEvents)
   events = indexes.copy()
   delays = indexes.copy()
 
-  while any(i is not None for i in indexes):
-    duration = 100000
+  params = []
 
+  if len(inspect.signature(durationCallback).parameters) >= 1:
+    params.append(tracking)
+
+  if len(inspect.signature(durationCallback).parameters) >= 2:
+    params.append(user)
+
+  while any(i is not None for i in indexes):
+    tracking.duration = sys.maxsize
     for i in range(len(indexes)):
       if indexes[i] is not None:
         if delays[i] == 0:
           events[i], delays[i] = polyEvents[i][indexes[i]]
           indexes[i] += 1
+          tracking.eventsAmounts[i] += 1
           events[i]()
-        duration = min(duration, delays[i])
+        tracking.duration = min(tracking.duration, delays[i])
         
-    cumul += duration
-    params = [duration]
-
-    if len(inspect.signature(durationCallback).parameters) > 1:
-      params.append(cumul)
+    tracking.cumul += tracking.duration
 
     durationCallback(*params)
         
@@ -3243,9 +3243,9 @@ def playEvents(polyEvents, durationCallback):
       if indexes[i] is not None and indexes[i] >= len(polyEvents[i]):
         indexes[i] = None
       else:
-        delays[i] -= duration
+        delays[i] -= tracking.duration
         
-  return cumul
+  return tracking.cumul
         
 
 def voicesToEvents(voices, tempo, callback):
@@ -3273,8 +3273,8 @@ def voicesToEvents(voices, tempo, callback):
   return raws
 
 
-def playVoices(voices, tempo, voiceCallback, durationCallback):
-  return playEvents(voicesToEvents(voices, tempo, voiceCallback), durationCallback)
+def playVoices(voices, tempo, voiceCallback, durationCallback, **kwargs):
+  return playEvents(voicesToEvents(voices, tempo, voiceCallback), durationCallback, **kwargs)
 
 
 ###### Begin of section high precision time handling based on NTP #####
@@ -3348,14 +3348,14 @@ def ntp_set_time():
 def gcCollect():
   addCommand("gc.collect()")
 
-def ntpSetTime(device = None):
-  return getDevice(device=device).ntpSetTime()
+
+def ntpSync(device = None):
+  return getDevice(device=device).ntpSync()
+
 
 def ntpSleepUntil(timestamp, device = None):
   return getDevice(device=device).ntpSleepUntil(timestamp)
 
-def ntpSleep(delay, device = None):
-  return getDevice(device=device).ntpSleep(delay)
 
 def ntpTime(device = None):
   return getDevice(device=device).ntpTime()
