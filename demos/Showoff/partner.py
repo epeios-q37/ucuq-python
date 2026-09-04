@@ -179,24 +179,24 @@ def indy(withSound=True):
   return True
 
 
-def Buzzer(whole):
-  buzzer.launch(whole)
+def Buzzer(length):
+  buzzer.launch(length)
 
 
-def OLEDGeo(whole):
-  oled.launchGeo(whole)
+def OLEDGeo(length):
+  oled.launchGeo(length)
   
   
-def Mov(whole):
-  oled.launchMov(whole)
+def Mov(length):
+  oled.launchMov(length)
   
   
 def matrixSimulation():
   matrix.launch()
 
 
-def Ring(whole):
-  ring.launch(whole)
+def Ring(length):
+  ring.launch(length)
   
   
 def Servos():
