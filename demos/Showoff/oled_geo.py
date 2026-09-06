@@ -367,7 +367,7 @@ def animVectorField(oled, duration=2.0):
     t += 0.15
 
 VERSIONS_ = (
-  (animPlasmaFractal,),
+  (animNeuronal,),
   (
     animTunnel,
     animLightning,

@@ -80,7 +80,7 @@ def atkPartnerRing(dom):
 
 
 def atkPartnerLCD(dom):
-  partner.LCD()
+  partner.LCD(partnerLength_(dom))
 
 
 def atkPartnerServos(dom):
