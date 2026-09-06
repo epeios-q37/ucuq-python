@@ -127,7 +127,7 @@ def indy(withSound=True):
   for c in range(ringCount):
     ringEvents.append(
       (
-        lambda c=c, color=shared.getRainbowColor_(
+        lambda c=c, color=shared.getRainbowColor(
           c + ringOffset
         ), ringCount=ringCount: (
           ring.setValue(c, color).setValue(ringCount - c, color).write(),
@@ -163,7 +163,7 @@ def indy(withSound=True):
   lcd.hideCursor()
 
   for i in range(8):
-    ring.setValue(i, shared.getRainbowColor_(ringOffset + i, 7)).write()
+    ring.setValue(i, shared.getRainbowColor(ringOffset + i, 7)).write()
 
   ravel.displayRingGauges()
 
