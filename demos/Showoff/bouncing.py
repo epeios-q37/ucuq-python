@@ -83,7 +83,7 @@ def animateLoopingBouncingBall_(fb, width, height, timestamp, bounceCount=3):
     
     fb.show()
       
-    timestamp += .05
+    timestamp += .075
     sleepUntil_(timestamp, 0)
 
 

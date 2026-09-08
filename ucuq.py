@@ -3,9 +3,19 @@
 # COMPUTER GENERATED FILE #
 ###########################
 
-import datetime, http, os, json, socket, ssl, sys, threading, urllib
-from inspect import getframeinfo, stack
+import datetime
+import http
+import json
+import os
+import socket
+import ssl
+import sys
+import types
+import threading
+import urllib
+import zlib
 
+from inspect import getframeinfo, stack
 
 CONFIG_FILE_ = ( "/home/csimon/q37/epeios/other/BPY/Apps/UCUq/" if "Q37_EPEIOS" in os.environ else "../" ) + "ucuq.json"
 KITS_FILE_ = ( "/home/csimon/epeios/other/BPY/Apps/UCUq/assets/" if "Q37_EPEIOS" in os.environ else "../assets/" ) + "kits.json"
@@ -40,7 +50,7 @@ UCUQ_SSL_ = CONFIG_["Proxy"]["SSL"] if CONFIG_ and "Proxy" in CONFIG_ and "SSL" 
 
 
 PROTOCOL_LABEL_ = "c37cc83e-079f-448a-9541-5c63ce00d960"
-PROTOCOL_VERSION_ = "0"
+PROTOCOL_VERSION_ = "1"
 
 writeLock_ = threading.Lock()
 
@@ -96,6 +106,11 @@ def writeString_(socket, string):
   bString = bytes(string, "utf-8")
   writeUInt_(socket, len(bString))
   send_(socket, bString)
+
+
+def writeBytes_(socket, bytes):
+  writeUInt_(socket, len(bytes))
+  send_(socket, bytes)
 
 
 def writeStrings_(socket, strings):
@@ -180,18 +195,23 @@ def ignition_(socket, token, deviceId, errorAsException):
     if errorAsException:
       raise Error(error)
     else:
-      return False
+      return None
+
+  deviceProtocolVersion = readUInt_(socket)
+
+  if deviceProtocolVersion != 0:
+    print(f"{deviceId}: {deviceProtocolVersion} !")
     
-  return True
+  return deviceProtocolVersion
 
 
 def connect_(token, deviceId, errorAsException):
   socket = init_()
   handshake_(socket)
-  if ignition_(socket, token, deviceId, errorAsException):
-    return socket
+  if ( deviceProtocolVersion := ignition_(socket, token, deviceId, errorAsException) ) is not None:
+    return socket, deviceProtocolVersion
   else:
-    return None
+    return None, None
 
 
 class Error(Exception):
@@ -236,8 +256,9 @@ def readingThread(proxy):
 
 
 class Proxy:
-  def __init__(self, socket, id):
+  def __init__(self, socket, deviceProtocolVersion, id):
     self.socket = socket
+    self.deviceProtocolVersion_ = deviceProtocolVersion
     self.id = id
     if socket is not None:
       self.resultBegin = threading.Event()
@@ -264,7 +285,7 @@ class Device_:
     self.token = token if token else DEMO_VTOKEN
     self.id = id if id else ""
 
-    self.proxy = Proxy(connect_(self.token, self.id, errorAsException = errorAsException), self.id)
+    self.proxy = Proxy(*connect_(self.token, self.id, errorAsException = errorAsException), self.id)
 
     return self.proxy.socket != None
   
@@ -272,6 +293,10 @@ class Device_:
     with writeLock_:
       writeString_(self.proxy.socket, R_UPLOAD_)
       writeStrings_(self.proxy.socket, modules)
+
+  def compress_(self, string):
+    compressor = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-10)
+    return compressor.compress(string.encode('utf-8')) + compressor.flush()
 
   def execute_(self, script, expression):
     # https://github.com/micropython/micropython/issues/19529
@@ -282,7 +307,10 @@ class Device_:
     if self.proxy.socket:
       with writeLock_:
         writeString_(self.proxy.socket, R_EXECUTE_)
-        writeString_(self.proxy.socket, script + "\ngc.collect()")
+        if self.proxy.deviceProtocolVersion_ == 0:
+          writeString_(self.proxy.socket, script + "\ngc.collect()")
+        else:
+          writeBytes_(self.proxy.socket, self.compress_(script + "\ngc.collect()"))
         writeString_(self.proxy.socket, expression)
 
       if expression:
@@ -298,6 +326,9 @@ class Device_:
             return json.loads(result)
           else:
             return None
+
+  def getDeviceSpecs(self):
+    return types.SimpleNamespace(scriptsCompressed = self.proxy.deviceProtocolVersion_ >= 1)
           
   def commit(self, expression = ""):
     result = ""
@@ -2688,8 +2719,14 @@ class OLED_(Core_, FrameBuffer_):
     Core_.__init__(self, device)
     FrameBuffer_.__init__(self, self.buffer, self.width, self.height, MONO_VLSB)
   
-  def show(self, compress = OLED_SHOW_DEFAULT_COMPRESS_VALUE):
+  def show(self, compress = None):
     # 'compress' can not be set to True for Brython due to https://github.com/brython-dev/brython/issues/2910
+    if compress is None:
+      if False and self.getDevice().getDeviceSpecs().scriptsCompressed:
+        compress = False
+      else:
+        compress = OLED_SHOW_DEFAULT_COMPRESS_VALUE
+
     if compress:
       compressor = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-10)
       command = f'oled_show({self.getObject()}, "{base64.b64encode(compressor.compress(self.buffer) + compressor.flush()).decode("ascii")}")'
