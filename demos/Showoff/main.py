@@ -15,6 +15,7 @@ import indy
 import life
 import partner
 import pink
+import qrcodes
 from show import getDevices as getDevices_, countdownIfRequested as countdownIfRequested_, connect as connect_, syncTest as syncTest_
 import trios
 
@@ -55,7 +56,8 @@ def atk(dom):
   dom.inner("", BODY.format(devices, DEVICES_[0], *SHOW_DEVICES_))  # type: ignore # noqa: F821
   partner.set(dom)
   trios.set(dom)
-  dom.executeVoid("handleClearable();toggleFieldsetByLegend('Showoff', false);")
+  qrcodes.set(dom)
+  dom.executeVoid("handleClearable();toggleFieldsetByLegend('Showoff', false);toggleFieldsetByLegend('QR Codes', true);")
 
 
 def atkPartnerConnect(dom):
@@ -165,10 +167,12 @@ def atkShowPlay(dom):
     trios.launch(int(show), timestamp, devices)
 
 
-def _atkShowColors(dom):
-  devices = getDevices_()
-  timestamp = countdownIfRequested_(dom, time.time() + DELAY_, devices)
-  colors.launch(timestamp, devices)
+def atkQRCodesSelect(dom, id):
+  dom.setValue("QRCodesText", dom.getValue(id))
+
+
+def atkQRCodesDisplay(dom):
+  dom.executeVoid(f"window.open('http://api.qrserver.com/v1/create-qr-code/?data={dom.getValue('QRCodesText')}', '_blank')")
 
 
 if os.environ.get("PREFIX", "").startswith("/data/data/com.termux"):
