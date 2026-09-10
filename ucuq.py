@@ -199,19 +199,19 @@ def ignition_(socket, token, deviceId, errorAsException):
 
   deviceProtocolVersion = readUInt_(socket)
 
-  if deviceProtocolVersion != 0:
-    print(f"{deviceId}: {deviceProtocolVersion} !")
+  specs = readString_(socket)
     
-  return deviceProtocolVersion
+  return deviceProtocolVersion, json.loads( specs if specs != "" else "{}")
 
 
 def connect_(token, deviceId, errorAsException):
   socket = init_()
   handshake_(socket)
-  if ( deviceProtocolVersion := ignition_(socket, token, deviceId, errorAsException) ) is not None:
-    return socket, deviceProtocolVersion
+  deviceProtocolVersion, deviceSpecs = ignition_(socket, token, deviceId, errorAsException)
+  if ( deviceProtocolVersion ) is not None:
+    return socket, deviceProtocolVersion, deviceSpecs
   else:
-    return None, None
+    return None, None, None
 
 
 class Error(Exception):
@@ -256,9 +256,10 @@ def readingThread(proxy):
 
 
 class Proxy:
-  def __init__(self, socket, deviceProtocolVersion, id):
+  def __init__(self, socket, deviceProtocolVersion, deviceSpecs, id):
     self.socket = socket
     self.deviceProtocolVersion_ = deviceProtocolVersion
+    self.deviceSpecs_ = deviceSpecs
     self.id = id
     if socket is not None:
       self.resultBegin = threading.Event()
@@ -3352,6 +3353,43 @@ def voicesToEvents(voices, tempo, callback):
     raws.append(raw)
 
   return raws
+
+
+def dispatchEvents(eventGenerators, durationCallback, **kwargs):
+  tracking = types.SimpleNamespace(
+    cumul =  0,
+    eventsAmounts=[0] * len(eventGenerators)
+  )
+
+  delays = [0] * len(eventGenerators)
+  params = []
+
+  if len(inspect.signature(durationCallback).parameters) >= 1:
+    params.append(tracking)
+
+  if len(inspect.signature(durationCallback).parameters) >= 2:
+    params.append(types.SimpleNamespace(**kwargs))
+
+  while True:
+    tracking.duration = sys.maxsize
+
+    for i in range(len(delays)):
+      if delays[i] != -1:
+        if delays[i] == 0:
+          tracking.eventsAmounts[i] += 1
+          delays[i] = next(eventGenerators[i], -1)
+        tracking.duration = min(tracking.duration, delays[i])
+        
+    tracking.cumul += tracking.duration
+
+    if durationCallback(*params) == False or all(i == -1 for i in delays):
+      break
+
+    for i in range(len(delays)):
+      if delays[i] != -1:
+        delays[i] -= tracking.duration
+        
+  return tracking.cumul
 
 
 def playVoices(voices, tempo, voiceCallback, durationCallback, **kwargs):
