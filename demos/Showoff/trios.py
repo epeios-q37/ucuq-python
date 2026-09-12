@@ -1,7 +1,5 @@
 import base64  # noqa: I001
 import copy
-import inspect
-import sys
 import types
 import zlib
 
@@ -280,12 +278,10 @@ def ringsRainbowEvents_(duration, rings):
     counter += 1
 
 
-def lcdTitleEvent_(title, counter, lcds):
+def lcdTitleEvent_(title, counter, lcdStrip):
   string = title[counter % (len(title) - KIT_COUNT_ * LCD_WIDTH_):][:KIT_COUNT_ * LCD_WIDTH_]
 
-  lcds[0].moveTo(0,0).putString(string[:LCD_WIDTH_]),
-  lcds[1].moveTo(0,0).putString(string[LCD_WIDTH_:][:LCD_WIDTH_]),
-  lcds[2].moveTo(0,0).putString(string[LCD_WIDTH_ * 2:][:LCD_WIDTH_])
+  lcdStrip.moveTo(0,0).putString(string)
 
 
 def lcdTitlePrologEvents_(title, t, lcds):
@@ -313,9 +309,10 @@ def lcdTitleMainEvents_(title, duration, lcds):
 
 
 def lcdTitleEvents_(title, duration, lcds):
+  lcdStrip = ucuq.LCD_Strip(lcds)
   t = types.SimpleNamespace(duration = duration)
-  yield from lcdTitlePrologEvents_(title, t, lcds)
-  yield from lcdTitleMainEvents_(title, t.duration, lcds)
+  yield from lcdTitlePrologEvents_(title, t, lcdStrip)
+  yield from lcdTitleMainEvents_(title, t.duration, lcdStrip)
 
 
 def lcdDurationEvents_(duration, lcds):

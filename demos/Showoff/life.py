@@ -147,5 +147,5 @@ def runDemo_(oled, ring, lcd, timestamp):
 
 def launch(timestamp, devices):
   oleds = devices.oleds
-#  runDemo_(ucuq.OLEDS_Wall(((oleds[0], oleds[1], oleds[2]),)), devices.rings, devices.lcds.backlightOn(), timestamp)
+#  runDemo_(ucuq.OLED_Wall(((oleds[0], oleds[1], oleds[2]),)), devices.rings, devices.lcds.backlightOn(), timestamp)
   runDemo_(oleds, devices.rings, devices.lcds.backlightOn(), timestamp)

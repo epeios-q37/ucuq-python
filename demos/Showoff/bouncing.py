@@ -92,6 +92,6 @@ def launch(timestamp, devices):
   
   sleepUntil_(timestamp, 0)
 
-  timestamp = animateLoopingBouncingBall_(ucuq.OLEDS_Wall((tuple(oled for oled in devices.oleds),)), ucuq.ravel.OLED_WIDTH * 3, ucuq.ravel.OLED_HEIGHT, timestamp)
+  timestamp = animateLoopingBouncingBall_(ucuq.OLED_Wall((tuple(oled for oled in devices.oleds),)), ucuq.ravel.OLED_WIDTH * 3, ucuq.ravel.OLED_HEIGHT, timestamp)
 
   return timestamp

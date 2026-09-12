@@ -41,8 +41,6 @@ def getQRCodesHTML_(qrCodesList):
 def set(dom):
   qrCodes = getQRCodes_()
 
-  print(qrCodes)
-
   html = getQRCodesHTML_(qrCodes)
 
   dom.inner("QRCodesList", html)

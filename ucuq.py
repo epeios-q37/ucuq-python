@@ -2533,12 +2533,13 @@ class HD44780_I2C(Multi_, Core_):
 
 
 class Servo(Multi_):
-  MULTI_PARAMS_ = (1, 'pwm')
+  MULTI_PARAMS_ = (0, 'pwm')
   class Specs:
-    def __init__(self, u16_min, u16_max, range):
+    def __init__(self, u16_min, u16_max, range, rest = 0):
       self.min = u16_min
       self.max = u16_max
       self.range = range
+      self.rest = rest
 
   class Tweak:
     def __init__(self, angle, u16_offset, invert):
@@ -2587,7 +2588,9 @@ class Servo(Multi_):
     self.pwm_ = pwm
 
     self.set = self.setSmooth if smooth else self.setRough
-    
+
+    self.flash()
+
   def getDevice(self):
     return self.pwm_.getDevice()
 
@@ -2663,6 +2666,14 @@ class Servo(Multi_):
   
   def get(self):
     return self.u16_ - self.specs_.min
+
+  def park(self):
+    self.setSmooth(self.specs_.rest)
+
+  def flash(self):
+    self.setSmooth(abs(self.specs_.rest - 500))
+    self.park()
+  
   
 
 def hexImageToBytearray_(hex_string, width=128, height=64):
@@ -3121,7 +3132,7 @@ def splitFrameBuffer_(globalFb, layout, screenDim):
   return fbMatrix
 
 
-class OLEDS_Wall(FrameBuffer_):
+class OLED_Wall(FrameBuffer_):
   def __init__(self, oleds):
     self.oleds_ = oleds
     self.layout_ = indexTwoDimensionalArray_(oleds)
@@ -3135,6 +3146,127 @@ class OLEDS_Wall(FrameBuffer_):
       for j, vbuffer in enumerate(hbuffers):
         self.oleds_[i][j].blit(vbuffer, 0, 0).show()
 
+
+class LCD_Strip:
+  C_NONE_ = 0
+  C_STEADY_ = 1
+  C_BLINKING_ = 2
+  def __init__(self, lcds):
+    self.lcds_ = lcds
+    self.x_ = 0
+    self.y_ = 0
+    self.cursor_ = False
+
+  def handleCursor_(self):
+    if self.cursor_ == self.C_NONE_:
+      return
+
+    index = self.x_ // ravel.LCD_WIDTH
+
+    for i, lcd in enumerate(self.lcds_):
+      if i == index:
+        if self.cursor_ == self.C_STEADY_:
+          lcd.showCursor()
+        else:
+          lcd.blinkCursorOn()
+      else:
+        lcd.hideCursor()
+
+  def moveTo(self, x, y):
+    self.x_ = x
+    self.y_ = y
+
+    return self
+
+  def putString(self, string):
+    while len(string) > 0:
+      index = self.x_ // ravel.LCD_WIDTH
+      localX = self.x_ % ravel.LCD_WIDTH
+      localY = self.y_
+
+      self.lcds_[index].moveTo(localX, localY)
+
+      localLen = min(len(string), ravel.LCD_WIDTH - localX)
+
+      localString = string[:localLen]
+
+      self.lcds_[index].moveTo(localX, localY).putString(localString)
+
+      self.x_ += localLen
+
+      if self.x_ >= ravel.LCD_WIDTH * len(self.lcds_):
+        self.x_ = 0
+        self.y_ += 1
+
+      if self.y_ >= ravel.LCD_HEIGHT:
+        self.y_ = 0
+
+      string = string[localLen:]
+
+    self.handleCursor_()
+
+    return self
+
+  def backlightOn(self):
+    self.lcds_.backlightOn()
+
+    return self
+  
+  def backlightOff(self):
+    self.lcds_.backlightOff()
+
+    return self
+
+  def displayOn(self):
+    self.lcds_.displayOn()
+
+    return self
+
+  def displayOff(self):
+    self.lcds_.displayOff()
+
+    return self
+
+  def blinkCursorOn(self):
+    self.lcds_.blinkCursorOn()
+    self.cursor_ = self.C_BLINKING_
+    self.handleCursor_()
+
+    return self
+
+  def blinkCursorOff(self):
+    self.lcds_.blinkCursorOff()
+    if self.cursor_ != self.C_NONE_:
+      self.cursor_ = self.C_STEADY_
+    self.handleCursor_()
+
+    return self
+
+  def hideCursor(self):
+    self.lcds_.hideCursor()
+    self.cursor_ = self.C_NONE_
+
+    return self
+
+  def showCursor(self):
+    self.cursor_ = self.C_STEADY_
+    self.handleCursor_()
+
+    return self
+
+  def putUpwardGauges(self, position, rawGauges):
+    gauges = rawGauges[:len(self.lcds_) * ravel.LCD_WIDTH - position]
+
+    index = position // ravel.LCD_WIDTH
+    x = position % ravel.LCD_WIDTH
+
+    while len(gauges):
+      self.lcds_[index].putUpwardGauges(x, gauges[:ravel.LCD_WIDTH - x])
+      index += 1
+      x = 0
+      gauges = gauges[ravel.LCD_WIDTH - x:]
+
+    return self
 
 def pwmJumps(jumps, step=100, delay=0.05):
   command = "pwmJumps([\n"
@@ -3759,7 +3891,7 @@ mbSync()
 """
 
 
-class Microbit():
+class Microbit:
   def execute_(self, command):
     self.device_.addCommand(f"Microbit.Display.{command}")
     
@@ -3818,7 +3950,6 @@ class kit_: # Act as namespace.
     pass
       
   class HD44780_I2C(globals()["HD44780_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
-
     @staticmethod
     def deepMax_(x):
       return x if not isinstance(x,(list,tuple,set)) else max((kit_.HD44780_I2C.deepMax_(i) for i in x), default=None)
@@ -3886,16 +4017,8 @@ class kit_: # Act as namespace.
   class SSD1306_I2C(globals()["SSD1306_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     pass
   
-  class Servo180(Servo):
-    def __init__(self, pin, rest, smooth=False, device=None, extra=True):
-      self.rest_ = rest
-      pwm = PWM(pin, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))")
-      super().__init__(pwm, Servo.Specs(1638, 8192, 180), smooth=smooth)
-      self.flash()
-
-    def park(self):
-      self.setSmooth(self.rest_)
-
+  class Servo(globals()["Servo"]):
+    pass
 
 def BaseClassPatch_(caller, owner):
 #  return caller if caller != owner else owner.__base__
@@ -3904,24 +4027,6 @@ def BaseClassPatch_(caller, owner):
 ##### End of generic section for kits #####
 
 ##### Begin of section dedicated to the Ravel kit #####
-class ravel_:  # act as namespace
-  class Upper(kit_.Servo180):
-    def __init__(self, smooth=False, device=None, extra=True):
-      super().__init__(0, ravel.SERVO_MAX, smooth, device, extra)
-    
-    def flash(self):
-      self.setSmooth(ravel.SERVO_MAX - 500)
-      self.park()
-  
-  class Lower(kit_.Servo180):
-    def __init__(self, smooth=False, device=None, extra=True):
-      super().__init__(1, 0, smooth, device, extra)
-    
-    def flash(self):
-      self.setSmooth(500)
-      self.park()
-
-
 class ravel:  # act as namespace
   class Kit:
     @staticmethod
@@ -4006,13 +4111,13 @@ class ravel:  # act as namespace
     def __new__(cls, device=None, extra=True):
       return super().__new__(BaseClassPatch_(cls, ravel.LCD), 16, 2, SoftI2C(6, 7, device=device), extra=extra)
     
-  class Upper(ravel_.Upper):
+  class Upper(kit_.Servo):
     def __new__(cls, smooth=False, device=None, extra=True):
-      return super().__new__(BaseClassPatch_(cls, ravel.Upper), smooth=smooth, device=device, extra=extra)
+      return super().__new__(BaseClassPatch_(cls, ravel.Upper), PWM(0, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))"), Servo.Specs(1638, 8192, 180, ravel.SERVO_MAX), smooth=smooth)
     
-  class Lower(ravel_.Lower):
+  class Lower(kit_.Servo):
     def __new__(cls, smooth=False, device=None, extra=True):
-      return super().__new__(BaseClassPatch_(cls, ravel.Lower), smooth=smooth, device=device, extra=extra)
+      return super().__new__(BaseClassPatch_(cls, ravel.Lower), PWM(1, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))"), Servo.Specs(1638, 8192, 180, 0), smooth=smooth)
     
   @staticmethod
   def get(list):
