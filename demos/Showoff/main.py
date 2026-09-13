@@ -12,7 +12,7 @@ import ucuq
 import bouncing
 import colors
 import indy
-import lcds
+import canon
 import life
 import partner
 import pink
@@ -155,7 +155,7 @@ SHOWS_ = {
   "Bouncing": lambda timestamp, devices: bouncing.launch(timestamp, devices),
   "Pink":  lambda timestamp, devices: pink.launch(timestamp, devices),
   "Life":  lambda timestamp, devices: life.launch(timestamp, devices),
-  "LCDS":  lambda timestamp, devices: lcds.launch(timestamp, devices),
+  "Canon":  lambda timestamp, devices: canon.launch(timestamp, devices),
 }
 
 

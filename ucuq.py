@@ -2493,15 +2493,18 @@ class HD44780_I2C(Multi_, Core_):
         charmap.append(0b0000)
       
     return self
+
+  @staticmethod
+  def getVPeakChar(peak):
+    return HD44780_I2C.VERTICAL_PEAKS_TABLE_[peak]
     
   def putUpwardPeaks(self, position, peaks, strip = False):
     up = ""
     down = ""
-    table = self.VERTICAL_PEAKS_TABLE_
     
     for peak in peaks:
-      up += table[max(peak - 7, 0)]
-      down += table[min(peak + 1, 9)]
+      up += self.getVPeakChar[max(peak - 7, 0)]
+      down += self.getVPeakChar[min(peak + 1, 9)]
       
     if not strip and position == 0 and len(peaks) == 16:
       self.moveTo(0,0).putString(up + down)
