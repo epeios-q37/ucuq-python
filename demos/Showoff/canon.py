@@ -156,7 +156,7 @@ def getRingEvents_(tracking, index, ring):
     yield tracking.getDelay(tracking)
 
 
-def launch(timestamp, devices):
+def launch(timestamp, parts):
   tracking = types.SimpleNamespace(
     tops = [Level_(0) for _ in range(AMOUNT_)],
     bottoms = [Level_(MAX_) for _ in range(AMOUNT_)],
@@ -168,10 +168,10 @@ def launch(timestamp, devices):
   timestamp += 1
   sleepUntil_(timestamp, 0)
 
-  uppers = devices.uppers
-  lowers = devices.lowers
-  lcds = ucuq.LCD_Strip(devices.lcds.uploadVPeakChars().backlightOn())
-  rings = devices.rings
+  uppers = parts.uppers
+  lowers = parts.lowers
+  lcds = ucuq.LCD_Strip(parts.lcds.uploadVPeakChars().backlightOn())
+  rings = parts.rings
 
   cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
 

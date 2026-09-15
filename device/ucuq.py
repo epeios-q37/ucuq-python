@@ -156,8 +156,7 @@ async def send(data):
   while amountSent < totalAmount:
     amount = totalAmount - amountSent
 
-    if amount > 4096:
-      amount = 4096
+    amount = min(amount, 4096)
 
     proxy[_P_WRITER].write(data[amountSent:amountSent + amount])	
     await proxy[_P_WRITER].drain()
