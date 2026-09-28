@@ -378,7 +378,9 @@ import string
 import sys
 import time
 import types
+import typing
 import zlib
+from typing import TYPE_CHECKING, Any
 
 import atlastk
 
@@ -1019,19 +1021,13 @@ ATK_XDEVICE_ = """
 <dialog id="ucuq_xdevice" style="width: min-content;">
   <fieldset>
     <legend>Device</legend>
-    <label style="display: flex; justify-content: space-between; margin: 5px;">
-      <span>Token:&nbsp;</span>
-      <input id="ucuq_xdevice_token">
-    </label>
-    <label style="display: flex; justify-content: space-between; margin: 5px;">
-      <span>Id:&nbsp;</span>
-      <input id="ucuq_xdevice_id">
-    </label>
+      <input xdh:onevent="ucuq_xdevice_ok" id="ucuq_xdevice_token_id">
+      <div style="display: flex; justify-content: space-around; margin: 5px;">
+        <button xdh:onevent="ucuq_xdevice_ok"/>{}</button>
+        <button xdh:onevent="ucuq_xdevice_cancel">{}</button>
+      </div>
+    </div>
   </fieldset>
-  <div style="display: flex; justify-content: space-around; margin: 5px;">
-    <button xdh:onevent="ucuq_xdevice_ok"/>{}</button>
-    <button xdh:onevent="ucuq_xdevice_cancel">{}</button>
-  </div>
   <fieldset>{}</fieldset>
 </dialog>
 """
@@ -1045,10 +1041,7 @@ def handleXDevice_(dom, response):
   if response:
     atlastk.getUserGlobals()["UCUqXDevice"](
       dom,
-      Device(
-        id=dom.getValue("ucuq_xdevice_id"),
-        token=dom.getValue("ucuq_xdevice_token"),
-      ),
+      Device(dom.getValue('ucuq_xdevice_token_id'))
     )
 
   dom.executeVoid("element = document.getElementById('ucuq_xdevice').remove();")
@@ -1257,15 +1250,23 @@ class Multi:
     return len(self.objects_)
 
   def __getattr__(self, methodName):
-    def wrapper(*args, **kwargs):
-      for object in self.objects_:
-        if hasattr(object, "__getattr__"):
-          returned = object.__getattr__(methodName)(*args, **kwargs)
-        else:
-          returned = getattr(object, methodName)(*args, **kwargs)
-      if type(returned) is type(object):
-        returned = self
-      return returned
+    if inspect.iscoroutinefunction(getattr(self.objects_[0], methodName)):
+      def wrapper(*args, **kwargs):
+        raise RuntimeError("Asynchronous methods are currently not handled correctly in this context.")  # Bryhon only problem ?
+        print(f"Async, {methodName}")
+        for obj in self.objects_:
+          returned = getattr(obj, methodName)(*args, **kwargs)
+          print(f"---> {returned}")
+        if type(returned) is type(object):
+          returned = self
+        return returned
+    else:
+      def wrapper(*args, **kwargs):
+        for obj in self.objects_:
+          returned = getattr(obj, methodName)(*args, **kwargs)
+        if type(returned) is type(obj):
+          returned = self
+        return returned
 
     return wrapper
 
@@ -2483,7 +2484,7 @@ class HD44780_I2C(Core_):
 
 class Servo:
   class Specs:
-    def __init__(self, u16_min, u16_max, range, rest = 0):
+    def __init__(self, u16_min, u16_max, range, rest = None):
       self.min = u16_min
       self.max = u16_max
       self.range = range
@@ -2619,8 +2620,9 @@ class Servo:
     self.setSmooth(self.specs_.rest)
 
   def flash(self):
-    self.setSmooth(abs(self.specs_.rest - 500))
-    self.park()
+    if self.specs_.rest is not None:
+      self.setSmooth(abs(self.specs_.rest - 500))
+      self.park()
   
   
 
@@ -3078,142 +3080,6 @@ def splitFrameBuffer_(globalFb, layout, screenDim):
           
   return fbMatrix
 
-
-class OLED_Wall(FrameBuffer_):
-  def __init__(self, oleds):
-    self.oleds_ = oleds
-    self.layout_ = indexTwoDimensionalArray_(oleds)
-
-    super().__init__(bytearray(len(oleds) * len(oleds[0]) * ravel.OLED_WIDTH * ravel.OLED_HEIGHT // 8), len(oleds[0]) * ravel.OLED_WIDTH, len(oleds) * ravel.OLED_HEIGHT, MONO_VLSB)
-
-  def show(self):
-    buffers = splitFrameBuffer_(self, self.layout_, (ravel.OLED_WIDTH, ravel.OLED_HEIGHT))
-
-    for i, hbuffers in enumerate(buffers):
-      for j, vbuffer in enumerate(hbuffers):
-        self.oleds_[i][j].blit(vbuffer, 0, 0).show()
-
-
-class LCD_Strip:
-  C_NONE_ = 0
-  C_STEADY_ = 1
-  C_BLINKING_ = 2
-  def __init__(self, lcds):
-    self.lcds_ = lcds
-    self.x_ = 0
-    self.y_ = 0
-    self.cursor_ = False
-
-  def handleCursor_(self):
-    if self.cursor_ == self.C_NONE_:
-      return
-
-    index = self.x_ // ravel.LCD_WIDTH
-
-    for i, lcd in enumerate(self.lcds_):
-      if i == index:
-        if self.cursor_ == self.C_STEADY_:
-          lcd.showCursor()
-        else:
-          lcd.blinkCursorOn()
-      else:
-        lcd.hideCursor()
-
-  def moveTo(self, x, y):
-    self.x_ = x
-    self.y_ = y
-
-    return self
-
-  def putString(self, string):
-    while len(string) > 0:
-      index = self.x_ // ravel.LCD_WIDTH
-      localX = self.x_ % ravel.LCD_WIDTH
-      localY = self.y_
-
-      self.lcds_[index].moveTo(localX, localY)
-
-      localLen = min(len(string), ravel.LCD_WIDTH - localX)
-
-      localString = string[:localLen]
-
-      self.lcds_[index].moveTo(localX, localY).putString(localString)
-
-      self.x_ += localLen
-
-      if self.x_ >= ravel.LCD_WIDTH * len(self.lcds_):
-        self.x_ = 0
-        self.y_ += 1
-
-      if self.y_ >= ravel.LCD_HEIGHT:
-        self.y_ = 0
-
-      string = string[localLen:]
-
-    self.handleCursor_()
-
-    return self
-
-  def backlightOn(self):
-    self.lcds_.backlightOn()
-
-    return self
-  
-  def backlightOff(self):
-    self.lcds_.backlightOff()
-
-    return self
-
-  def displayOn(self):
-    self.lcds_.displayOn()
-
-    return self
-
-  def displayOff(self):
-    self.lcds_.displayOff()
-
-    return self
-
-  def blinkCursorOn(self):
-    self.lcds_.blinkCursorOn()
-    self.cursor_ = self.C_BLINKING_
-    self.handleCursor_()
-
-    return self
-
-  def blinkCursorOff(self):
-    self.lcds_.blinkCursorOff()
-    if self.cursor_ != self.C_NONE_:
-      self.cursor_ = self.C_STEADY_
-    self.handleCursor_()
-
-    return self
-
-  def hideCursor(self):
-    self.lcds_.hideCursor()
-    self.cursor_ = self.C_NONE_
-
-    return self
-
-  def showCursor(self):
-    self.cursor_ = self.C_STEADY_
-    self.handleCursor_()
-
-    return self
-
-  def putUpwardGauges(self, position, rawGauges):
-    gauges = rawGauges[:len(self.lcds_) * ravel.LCD_WIDTH - position]
-
-    index = position // ravel.LCD_WIDTH
-    x = position % ravel.LCD_WIDTH
-
-    while len(gauges):
-      self.lcds_[index].putUpwardGauges(x, gauges[:ravel.LCD_WIDTH - x])
-      index += 1
-      x = 0
-      gauges = gauges[ravel.LCD_WIDTH - x:]
-
-    return self
 
 def pwmJumps(jumps, step=100, delay=0.05):
   command = "pwmJumps([\n"
@@ -3878,19 +3744,27 @@ class Microbit:
 
 ##### Begin of generic section for kits #####
 
-class kit_: # Act as namespace.
-  class WS2812(globals()["WS2812"]):  # Workaround to Brython issue     
+# Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
+# NOTA: 'def class Class(globals()["Class"]):' workaround prevents IntelliSense from working properly.
+_BWA_WS2812 = WS2812
+_BWA_BUZZER = Buzzer
+_BWA_HD44780_I2C = HD44780_I2C
+_BWA_SSD1306_I2C = SSD1306_I2C
+_BWA_SERVO = Servo
+
+class _kit: # Act as namespace.
+  class WS2812(_BWA_WS2812):
     def write(self):
       super().write(lambda color: f"(wc_({color}))")
       return self
     
-  class Buzzer(globals()["Buzzer"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
+  class Buzzer(_BWA_BUZZER):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     pass
       
-  class HD44780_I2C(globals()["HD44780_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
+  class HD44780_I2C(_BWA_HD44780_I2C):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
     @staticmethod
     def deepMax_(x):
-      return x if not isinstance(x,(list,tuple,set)) else max((kit_.HD44780_I2C.deepMax_(i) for i in x), default=None)
+      return x if not isinstance(x,(list,tuple,set)) else max((_kit.HD44780_I2C.deepMax_(i) for i in x), default=None)
 
     # - globalMax == -1: same max for all gauges.
     # - globalMax == 0: each gauge has its own max. 
@@ -3952,10 +3826,10 @@ class kit_: # Act as namespace.
         
       return self
       
-  class SSD1306_I2C(globals()["SSD1306_I2C"]):  # Workaround to Brython issue 'https://github.com/brython-dev/brython/issues/2662'.
+  class SSD1306_I2C(_BWA_SSD1306_I2C):
     pass
   
-  class Servo(globals()["Servo"]):
+  class Servo(_BWA_SERVO):
     pass
 
 def BaseClassPatch_(caller, owner):
@@ -3965,131 +3839,291 @@ def BaseClassPatch_(caller, owner):
 ##### End of generic section for kits #####
 
 ##### Begin of section dedicated to the Ravel kit #####
-class ravel:  # act as namespace
-  class Kit:
-    @staticmethod
-    def init_(create, object, instanciation):
-      return object if object is not None else (instanciation() if create else None)
-      
-    def __init__(self, ringOffset=0, device=None, extra=True, *, buzzer=None, ring=None, oled=None, lcd=None, upper=None, lower=None, create = None):
-      if create is None:
-        create =  all(x is None for x in (buzzer, ring, oled, lcd, upper, lower))
 
-      cls = self.__class__
-      self.buzzer_ = cls.init_(create, buzzer, lambda : ravel.Buzzer(device, extra))
-      self.ring_ = cls.init_(create, ring, lambda : ravel.Ring(ringOffset, device, extra))
-      self.oled_ = cls.init_(create, oled, lambda : ravel.OLED(device, extra))
-      self.lcd_ = cls.init_(create, lcd, lambda : ravel.LCD(device, extra))
-      self.upper_ =  cls.init_(create, upper, lambda : ravel.Upper(False, device, extra))
-      self.lower_ =  cls.init_(create, lower, lambda : ravel.Lower(False, device, extra))
-      
-    def raz(self):
-      self.__init__(self.ring_.getOffset())
-      
-    def buzzer(self):
-      return self.buzzer_
-    
-    def ring(self):
-      return self.ring_
-    
-    def oled(self):
-      return self.oled_
-    
-    def lcd(self):
-      return self.lcd_
-
-    def upper(self):
-      return self.upper_
-    
-    def lower(self):
-      return self.lower_
-    
-    def get(self, list):
-
-      components = []
-
-      for item in list:
-        match item.upper():
-          case "B":
-            components.append(self.buzzer())
-          case "L":
-            components.append(self.lcd())
-          case "O":
-            components.append(self.oled())
-          case "R":
-            components.append(self.ring())
-          case "S":
-            components.extend([self.upper(), self.lower()])
-          case _:
-            raise ValueError(f"Unknown '{item}' component!")
-          
-      return components
-
-    def displayRingGauges(self, globalMax = 0, placeholder=".", addendum="  "):
-      ravel.displayRingGauges(self.ring_, self.lcd_, globalMax, placeholder, addendum)
-
-  @staticmethod
-  def displayRingGauges(rings, lcds, globalMax, placeholder, addendum):
-    lcds.displayRingGauges(rings, 0, 0, 16, globalMax, placeholder, addendum)
-  
-  class Buzzer(kit_.Buzzer):
-    def __init__(self, device=None, extra=True):
-      super().__init__(PWM(5, device=device), extra=extra)
-      
-  class Ring(kit_.WS2812):
-    def __init__(self, offset=0, device=None, extra=True):
-      super().__init__(8, 20, offset=offset, device=device, extra=extra)
-    
-  class OLED(kit_.SSD1306_I2C):
-    def __init__(self, device=None, extra=True):
-      super().__init__(128, 64, I2C(10, 9, device=device), extra=extra)
-      
-  class LCD(kit_.HD44780_I2C):
-    def __init__(self, device=None, extra=True):
-      super().__init__(16, 2, SoftI2C(6, 7, device=device), extra=extra)
-    
-  class Upper(kit_.Servo):
-    def __init__(self, smooth=False, device=None, extra=True):
-      super().__init__(PWM(0, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))"), Servo.Specs(1638, 8192, 180, ravel.SERVO_MAX), smooth=smooth)
-    
-  class Lower(kit_.Servo):
-    def __init__(self, smooth=False, device=None, extra=True):
-      super().__init__(PWM(1, freq=50, device=device, extra=extra, convPin = lambda pin : f"(sp_({pin}))", convU16 = lambda u16: f"(su_({u16}))", convNS = lambda ns: f"(sn_({ns}))"), Servo.Specs(1638, 8192, 180, 0), smooth=smooth)
-    
-  @staticmethod
-  def get(list):
-    components = []
-
-    for item in list:
-      match item.upper():
-        case "B":
-          components.append(ravel.Buzzer())
-        case "L":
-          components.append(ravel.LCD())
-        case "O":
-          components.append(ravel.OLED())
-        case "R":
-          components.append(ravel.Ring())
-        case "S":
-          components.extend([ravel.Upper(), ravel.Lower()])
-        case _:
-          raise ValueError(f"Unknown '{item}' component!")
-        
-    return components
-
-  @staticmethod
-  def raz():
-    ravel.Kit()
-    
+class _RavelFactory:
   SERVO_MAX = 6554
   RING_MAX = 31
   RING_SIZE = 8
-  OLED_WIDTH = 128
-  OLED_HEIGHT = 64
-  OLED_BLACK = 0
-  OLED_WHITE = 1
-  LCD_WIDTH = 16
-  LCD_HEIGHT = 2
+  SCREEN_WIDTH = 128
+  SCREEN_HEIGHT = 64
+  SCREEN_BLACK = 0
+  SCREEN_WHITE = 1
+  PANEL_WIDTH = 16
+  PANEL_HEIGHT = 2
+
+  class _Buzzer(_kit.Buzzer):
+    def __init__(self, device=None, extra=True):
+      super().__init__(PWM(5, device=device), extra=extra)
+
+  class _Ring(_kit.WS2812):
+    def __init__(self, offset=0, device=None, extra=True):
+      super().__init__(8, 20, offset=offset, device=device, extra=extra)
+
+  class _Screen(_kit.SSD1306_I2C):
+    def __init__(self, device=None, extra=True):
+      super().__init__(128, 64, I2C(10, 9, device=device), extra=extra)
+
+  class _Panel(_kit.HD44780_I2C):
+    def __init__(self, device=None, extra=True):
+      super().__init__(16, 2, SoftI2C(6, 7, device=device), extra=extra)
+
+  class _Upper(_kit.Servo):
+    def __init__(self, smooth=False, device=None, extra=True):
+      super().__init__(
+        PWM(
+          0, freq=50, device=device, extra=extra, 
+          convPin=lambda pin: f"(sp_({pin}))", 
+          convU16=lambda u16: f"(su_({u16}))", 
+          convNS=lambda ns: f"(sn_({ns}))"),
+        Servo.Specs(1638, 8192, 180, _RavelFactory.SERVO_MAX),
+        smooth=smooth)
+
+  class _Lower(_kit.Servo):
+    def __init__(self, smooth=False, device=None, extra=True):
+      super().__init__(
+        PWM(
+          1, freq=50, device=device, extra=extra, 
+          convPin=lambda pin: f"(sp_({pin}))", 
+          convU16=lambda u16: f"(su_({u16}))", 
+          convNS=lambda ns: f"(sn_({ns}))"),
+        Servo.Specs(1638, 8192, 180, 0),
+        smooth=smooth)
+
+  class _Kit:
+    _COMPONENT_FACTORY: typing.ClassVar[dict[str, object]] = {
+      'buzzer': lambda obj: _RavelFactory._Buzzer(obj._device, obj._extra),
+      'ring': lambda obj: _RavelFactory._Ring(obj._ringOffset, obj._device, obj._extra),
+      'screen': lambda obj: _RavelFactory._Screen(obj._device, obj._extra),
+      'panel': lambda obj: _RavelFactory._Panel(obj._device, obj._extra),
+      'upper': lambda obj: _RavelFactory._Upper(False, obj._device, obj._extra),
+      'lower': lambda obj: _RavelFactory._Lower(False, obj._device, obj._extra),
+    }
+    _COMPONENT_GETTER: typing.ClassVar[dict[str, object]] = {
+      "B": lambda obj: obj.buzzer,
+      "P": lambda obj: obj.panel,
+      "S": lambda obj: obj.screen,
+      "R": lambda obj: obj.ring,
+      "U": lambda obj: obj.upper,
+      "L": lambda obj: obj.lower,
+    }
+
+    def __init__(self, ringOffset=0, device=None, extra=True):
+      self._ringOffset = ringOffset
+      self._device = device
+      self._extra = extra
+
+    def _purge(self):
+      for name in self._COMPONENT_FACTORY:
+        try:  # NOTA: 'hasattr' calls '__getattr__'…
+          delattr(self, name)
+        except:  # noqa: E722, S110
+          pass
+
+    def __getattr__(self, name):
+      if name in self._COMPONENT_FACTORY:
+        setattr(self, name, self._COMPONENT_FACTORY[name](self))
+        return getattr(self, name)
+      else:
+        super().__getattribute__(name)
+
+    def raz(self):
+      offset = self.ring.getOffset() if hasattr(self, 'ring') else self._ringOffset
+      self._purge()
+      self.__init__(offset, self._device, self._extra)
+      self.get("".join(self._COMPONENT_GETTER.keys()))
+
+    def get(self, componentList):
+      components = []
+
+      for item in componentList:
+        if item.upper() in self._COMPONENT_GETTER:
+          components.append(self._COMPONENT_GETTER[item.upper()](self))
+        else:
+          raise ValueError(f"Unknown '{item}' component!")
+        
+      return components if len(components) != 1 else components[0]
+
+    def displayRingGauges(self, globalMax=0, placeholder=".",addendum="  "):
+      self.panel.displayRingGauges(self.ring, 0 ,0, 16, globalMax, placeholder, addendum)
+
+    if TYPE_CHECKING:
+      buzzer: "_RavelFactory._Buzzer"
+      ring: "_RavelFactory._Ring"
+      screen: "_RavelFactory._Screen"
+      panel: "_RavelFactory._Panel"
+      upper: "_RavelFactory._Upper"
+      lower: "_RavelFactory._Lower"
+
+  def __init__(self):
+    self._defaultKit = _RavelFactory._Kit(ringOffset=0, device=None, extra=True)
+
+  def __getattr__(self, name):
+    return getattr(self._defaultKit, name)
+
+  def __call__(self, ringOffset=0, device=None, extra=True):
+    return _RavelFactory._Kit(ringOffset=ringOffset, device=device, extra=extra)
+
+  def displayRingGauges(self, globalMax=0, placeholder=".", addendum="  "):
+    self._defaultKit.displayRingGauges(globalMax, placeholder, addendum)
+
+
+def __getattr__(name):
+  if name == 'ravel':
+    global ravel
+
+    ravel = _RavelFactory()
+    return ravel
+
+  current_module = sys.modules[__name__]
+
+  getattrBackup = __getattr__
+
+  del current_module.__dict__["__getattr__"]
+  
+  try:
+    return types.ModuleType.__getattribute__(current_module, name)
+  finally:
+    current_module.__dict__["__getattr__"] = getattrBackup
+    
+
+if TYPE_CHECKING:
+  ravel: _RavelFactory._Kit
+
+class ScreenWall(FrameBuffer_):
+  def __init__(self, screens):
+    self.oleds_ = screens
+    self.layout_ = indexTwoDimensionalArray_(screens)
+
+    super().__init__(bytearray(len(screens) * len(screens[0]) * ravel.SCREEN_WIDTH * ravel.SCREEN_HEIGHT // 8), len(screens[0]) * ravel.SCREEN_WIDTH, len(screens) * ravel.SCREEN_HEIGHT, MONO_VLSB)
+
+  def show(self):
+    buffers = splitFrameBuffer_(self, self.layout_, (ravel.SCREEN_WIDTH, ravel.SCREEN_HEIGHT))
+
+    for i, hbuffers in enumerate(buffers):
+      for j, vbuffer in enumerate(hbuffers):
+        self.oleds_[i][j].blit(vbuffer, 0, 0).show()
+
+
+class PanelStrip:
+  C_NONE_ = 0
+  C_STEADY_ = 1
+  C_BLINKING_ = 2
+  def __init__(self, panels):
+    self.lcds_ = panels
+    self.x_ = 0
+    self.y_ = 0
+    self.cursor_ = False
+
+  def handleCursor_(self):
+    if self.cursor_ == self.C_NONE_:
+      return
+
+    index = self.x_ // ravel.PANEL_WIDTH
+
+    for i, lcd in enumerate(self.lcds_):
+      if i == index:
+        if self.cursor_ == self.C_STEADY_:
+          lcd.showCursor()
+        else:
+          lcd.blinkCursorOn()
+      else:
+        lcd.hideCursor()
+
+  def moveTo(self, x, y):
+    self.x_ = x
+    self.y_ = y
+
+    return self
+
+  def putString(self, string):
+    while len(string) > 0:
+      index = self.x_ // ravel.PANEL_WIDTH
+      localX = self.x_ % ravel.PANEL_WIDTH
+      localY = self.y_
+
+      self.lcds_[index].moveTo(localX, localY)
+
+      localLen = min(len(string), ravel.PANEL_WIDTH - localX)
+
+      localString = string[:localLen]
+
+      self.lcds_[index].moveTo(localX, localY).putString(localString)
+
+      self.x_ += localLen
+
+      if self.x_ >= ravel.PANEL_WIDTH * len(self.lcds_):
+        self.x_ = 0
+        self.y_ += 1
+
+      if self.y_ >= ravel.PANEL_HEIGHT:
+        self.y_ = 0
+
+      string = string[localLen:]
+
+    self.handleCursor_()
+
+    return self
+
+  def backlightOn(self):
+    self.lcds_.backlightOn()
+
+    return self
+  
+  def backlightOff(self):
+    self.lcds_.backlightOff()
+
+    return self
+
+  def displayOn(self):
+    self.lcds_.displayOn()
+
+    return self
+
+  def displayOff(self):
+    self.lcds_.displayOff()
+
+    return self
+
+  def blinkCursorOn(self):
+    self.lcds_.blinkCursorOn()
+    self.cursor_ = self.C_BLINKING_
+    self.handleCursor_()
+
+    return self
+
+  def blinkCursorOff(self):
+    self.lcds_.blinkCursorOff()
+    if self.cursor_ != self.C_NONE_:
+      self.cursor_ = self.C_STEADY_
+    self.handleCursor_()
+
+    return self
+
+  def hideCursor(self):
+    self.lcds_.hideCursor()
+    self.cursor_ = self.C_NONE_
+
+    return self
+
+  def showCursor(self):
+    self.cursor_ = self.C_STEADY_
+    self.handleCursor_()
+
+    return self
+
+  def putUpwardGauges(self, position, rawGauges):
+    gauges = rawGauges[:len(self.lcds_) * ravel.PANEL_WIDTH - position]
+
+    index = position // ravel.PANEL_WIDTH
+    x = position % ravel.PANEL_WIDTH
+
+    while len(gauges):
+      self.lcds_[index].putUpwardGauges(x, gauges[:ravel.PANEL_WIDTH - x])
+      index += 1
+      x = 0
+      gauges = gauges[ravel.PANEL_WIDTH - x:]
+
+    return self  
 
 ##### End of section dedicated to the Ravel kit #####
 

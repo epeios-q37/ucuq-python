@@ -1,5 +1,6 @@
 import base64  # noqa: I001
 import copy
+import sys
 import types
 import zlib
 
@@ -13,10 +14,10 @@ from fractions import Fraction
 # No debug if == 0
 DEBUG_DURATION_ = 0
 
-LCD_WIDTH_ = ucuq.ravel.LCD_WIDTH
+PANEL_WIDTH_ = ucuq.ravel.PANEL_WIDTH
 
-OLED_HEIGHT_ = ucuq.ravel.OLED_HEIGHT
-OLED_WIDTH_ = ucuq.ravel.OLED_WIDTH
+SCREEN_HEIGHT_ = ucuq.ravel.SCREEN_HEIGHT
+SCREEN_WIDTH_ = ucuq.ravel.SCREEN_WIDTH
 
 PIANO_ROLL_HEIGHT_ = 57
 FAST_SCROLL_HEIGHT_= 9 * PIANO_ROLL_HEIGHT_ // 10
@@ -24,20 +25,20 @@ PIANO_ROLL_MARKER_WIDTH_ = 20
 PIANO_ROLL_VOICE_WIDTH_ = 39
 PIANO_ROLL_VOICES_START_ = (2, 44, 86)
 PIANO_ROLL_SEPARATOR_POSITIONS_ = (0, 42, 84, 126)
-LCD_ACTIVE_NOTES_WIDTH_ = 7
+PANEL_ACTIVE_NOTES_WIDTH_ = 7
 
 REGULAR_SCROLL_DELAY_ = .10
 START_SCROLL_DELAY_ = .05
 
-LCD_TITLE_DELAY_ = 1/3
+PANEL_TITLE_DELAY_ = 1/3
 
 RING_RAINBOW_DELAY_ = 1/3
 
 START_DELAY_ = (FAST_SCROLL_HEIGHT_ * START_SCROLL_DELAY_) + REGULAR_SCROLL_DELAY_ * (PIANO_ROLL_HEIGHT_ - FAST_SCROLL_HEIGHT_)
 
-COMMIT_MAX_DELAY_ = 1/2
+COMMIT_MAX_DELAY_ = 1/3
 
-OLED_ANTICIPATION_ = 0
+SCREEN_ANTICIPATION_ = 0
 KIT_COUNT_ = 3
 
 NOTE_UP_CHARMAP_ = (
@@ -143,59 +144,65 @@ def ringsActiveNotesEvents_(voice, turn, rings):
       counter += 1
 
 
-def oledComputeNotePos_(turn, note, minNote, maxNote):
+def screenComputeNotePos_(turn, note, minNote, maxNote):
   return PIANO_ROLL_VOICES_START_[turn] + ( PIANO_ROLL_VOICE_WIDTH_ - 1 ) * ( note - minNote ) // ( maxNote - minNote )
 
 
-def oledDrawNote_(index, pitch, minNote, maxNote, oled):
-  oled.pixel(oledComputeNotePos_(index, pitch, minNote, maxNote), 0, 1)
+def screenDrawNote_(index, pitch, minNote, maxNote, screen):
+  screen.pixel(screenComputeNotePos_(index, pitch, minNote, maxNote), 0, 1)
 
 
-def oledDrawMarker_(turn, color, counter, oled):
+def screenDrawMarker_(turn, color, counter, screen):
   width = PIANO_ROLL_VOICE_WIDTH_ - PIANO_ROLL_MARKER_WIDTH_
   trueX = abs((counter % width * 2 ) - width * 2 + width)
-  oled.hLine( PIANO_ROLL_VOICES_START_[turn] + trueX, OLED_HEIGHT_ - 1, PIANO_ROLL_MARKER_WIDTH_, color)
+  screen.hLine( PIANO_ROLL_VOICES_START_[turn] + trueX, SCREEN_HEIGHT_ - 1, PIANO_ROLL_MARKER_WIDTH_, color)
 
 
-def oledDrawSeparators_(counter, oleds):
+def screenDrawSeparators_(counter, screens):
   for position in PIANO_ROLL_SEPARATOR_POSITIONS_:
-    for y in range(OLED_HEIGHT_):
-      oleds.pixel(position, y, 1 if ( y + counter ) % ( KIT_COUNT_ * 3 ) == KIT_COUNT_ * 3 // 2 else 0 )
+    for y in range(SCREEN_HEIGHT_):
+      screens.pixel(position, y, 1 if ( y + counter ) % ( KIT_COUNT_ * 3 ) == KIT_COUNT_ * 3 // 2 else 0 )
 
 
-def oledPianoRollEvent_(pitches, tracking, separatorCounter, oleds):
-  minNotes, maxNotes = unpack_(tracking.extrema)
+def screenPianoRollEvent_(pitches, tracking, separatorCounter, screens):
+  minNotes, maxNotes, _ = unpack_(tracking.extrema)
 
   for turn, pitch in enumerate(pitches):
     if pitch:
-      oledDrawNote_(turn, pitch, minNotes[turn], maxNotes[turn], oleds)
+      screenDrawNote_(turn, pitch, minNotes[turn], maxNotes[turn], screens)
 
-  for turn, oled in enumerate(oleds):
-    oledDrawMarker_(turn, 1, separatorCounter, oled)
-  oleds.show()
+  for turn, screen in enumerate(screens):
+    screenDrawMarker_(turn, 1, separatorCounter, screen)
+  screens.show()
 
-  for turn, oled in enumerate(oleds):
+  for turn, screen in enumerate(screens):
     pitch = pitches[turn]
-    oledDrawMarker_(turn, 0, separatorCounter, oled)
+    screenDrawMarker_(turn, 0, separatorCounter, screen)
     if pitch:
-      oledDrawNote_(turn, pitch, minNotes[turn], maxNotes[turn], oled)
+      screenDrawNote_(turn, pitch, minNotes[turn], maxNotes[turn], screen)
 
-  oleds.scroll(dx=0, dy=1).hLine(0, 0, OLED_WIDTH_, 0).hLine(0, PIANO_ROLL_HEIGHT_, OLED_WIDTH_, 0)
-  oledDrawSeparators_(separatorCounter, oleds)
+  screens.scroll(dx=0, dy=1).hLine(0, 0, SCREEN_WIDTH_, 0).hLine(0, PIANO_ROLL_HEIGHT_, SCREEN_WIDTH_, 0)
+  screenDrawSeparators_(separatorCounter, screens)
 
 
 def getExtremaNotes_(voices):
-  minNotes = [100] * len(voices)
-  maxNotes = [0] * len(voices)
+  minNotes, maxNotes, ambituses =  tuple([100] * len(voices) for _ in range(3))
 
   for i, voice in enumerate(voices):
+    minNote = sys.maxsize
+    maxNote = 0
+
     for note in voice:
       pitch = note[0]
       if pitch:
-        minNotes[i] = min(minNotes[i], pitch)
-        maxNotes[i] = max(maxNotes[i], pitch)
+        minNote = min(minNote, pitch)
+        maxNote = max(maxNote, pitch)
+    
+    minNotes[i] = minNote
+    maxNotes[i] = maxNote
+    ambituses[i] = maxNote - minNote
 
-  return minNotes, maxNotes
+  return minNotes, maxNotes, ambituses
 
 
 def getPacedNotes_(tracking):
@@ -226,32 +233,34 @@ def getPacedNotes_(tracking):
   return pacedNotes
 
 
-def oledActiveNotesEvent_(pitches, tracking, oleds):
-  minNotes, maxNotes = unpack_(tracking.extrema)
+def screenActiveNotesEvent_(pitches, tracking, screens):
+  minNotes, maxNotes, _ = unpack_(tracking.extrema)
 
   for start in PIANO_ROLL_VOICES_START_:
-    oleds.rect(start, PIANO_ROLL_HEIGHT_, PIANO_ROLL_VOICE_WIDTH_, OLED_HEIGHT_ - PIANO_ROLL_HEIGHT_, 0, True )
+    screens.rect(start, PIANO_ROLL_HEIGHT_, PIANO_ROLL_VOICE_WIDTH_, SCREEN_HEIGHT_ - PIANO_ROLL_HEIGHT_, 0, True )
 
   for index, pitch in enumerate(pitches):
     if pitch:
-      oleds.vLine(oledComputeNotePos_(index, pitch, minNotes[index], maxNotes[index]), PIANO_ROLL_HEIGHT_, OLED_HEIGHT_ - PIANO_ROLL_HEIGHT_ - 1, 1)    
+      screens.vLine(screenComputeNotePos_(index, pitch, minNotes[index], maxNotes[index]), PIANO_ROLL_HEIGHT_, SCREEN_HEIGHT_ - PIANO_ROLL_HEIGHT_ - 1, 1)    
 
 
-def oledEvents_(pacedNotes, tracking, oleds):
+def screenEvents_(pacedNotes, tracking, screens):
   for i in range(len(pacedNotes)):
     if i >= PIANO_ROLL_HEIGHT_:
-      oledActiveNotesEvent_(pacedNotes[i-PIANO_ROLL_HEIGHT_][0], tracking, oleds)
-    oledPianoRollEvent_(pacedNotes[i][0], tracking, i, oleds)
-    yield pacedNotes[i][1] - ( OLED_ANTICIPATION_ if i == 0 else 0 )
+      screenActiveNotesEvent_(pacedNotes[i-PIANO_ROLL_HEIGHT_][0], tracking, screens)
+    screenPianoRollEvent_(pacedNotes[i][0], tracking, i, screens)
+    yield pacedNotes[i][1] - ( SCREEN_ANTICIPATION_ if i == 0 else 0 )
 
 
-def lcdActiveNotesEvents_(notes, minNote, maxNote, width, lcd):
+def panelActiveNotesEvents_(notes, position, minNote, ambitus, panel):
   counter = 0
   yield START_DELAY_
 
+  peakWidth = 5 * (ambitus // 5 + 1)
+
   for note in notes:
-    lcd.moveTo(LCD_WIDTH_ - width, 1).putString(lcd.getForwardPeak(( note[0] - minNote ) * (width * 5 - 1) // ( maxNote - minNote) , width * 5 ) if note[0] else lcd.getEmptyPeak(width * 5)),
-    lcd.moveTo(LCD_WIDTH_ - width - 2, 1).putString(chr(6 + counter % 2) if note[0] else " ")
+    panel.moveTo(position, 1).putString(chr(6 + counter % 2) if note[0] else " ")
+    panel.moveTo(position + 2, 1).putString(panel.getForwardPeak(( note[0] - minNote ), peakWidth ) if note[0] else panel.getEmptyPeak(peakWidth))
 
     yield note[1]
 
@@ -278,57 +287,57 @@ def ringsRainbowEvents_(duration, rings):
     counter += 1
 
 
-def lcdTitleEvent_(title, counter, lcdStrip):
-  string = title[counter % (len(title) - KIT_COUNT_ * LCD_WIDTH_):][:KIT_COUNT_ * LCD_WIDTH_]
+def panelTitleEvent_(title, counter, panelStrip):
+  string = title[counter % (len(title) - KIT_COUNT_ * PANEL_WIDTH_):][:KIT_COUNT_ * PANEL_WIDTH_]
 
-  lcdStrip.moveTo(0,0).putString(string)
+  panelStrip.moveTo(0,0).putString(string)
 
 
-def lcdTitlePrologEvents_(title, t, lcds):
-  title = KIT_COUNT_ * LCD_WIDTH_ // 4 * "\06\07\06 " + KIT_COUNT_ * (title + LCD_WIDTH_ * " ")
+def panelTitlePrologEvents_(title, t, panels):
+  title = KIT_COUNT_ * PANEL_WIDTH_ // 4 * "\06\07\06 " + KIT_COUNT_ * (title + PANEL_WIDTH_ * " ")
   counter = 0
 
-  while t.duration > 0 and counter < KIT_COUNT_ * LCD_WIDTH_:
-    lcdTitleEvent_(title, counter, lcds)
-    yield LCD_TITLE_DELAY_
+  while t.duration > 0 and counter < KIT_COUNT_ * PANEL_WIDTH_:
+    panelTitleEvent_(title, counter, panels)
+    yield PANEL_TITLE_DELAY_
 
-    t.duration -= LCD_TITLE_DELAY_
+    t.duration -= PANEL_TITLE_DELAY_
     counter += 1
 
 
-def lcdTitleMainEvents_(title, duration, lcds):
-  title = KIT_COUNT_ * (title + LCD_WIDTH_ * " ")
+def panelTitleMainEvents_(title, duration, panels):
+  title = KIT_COUNT_ * (title + PANEL_WIDTH_ * " ")
   counter = 0
 
   while duration > 0:
-    lcdTitleEvent_(title, counter, lcds)
-    yield LCD_TITLE_DELAY_
+    panelTitleEvent_(title, counter, panels)
+    yield PANEL_TITLE_DELAY_
 
-    duration -= LCD_TITLE_DELAY_
+    duration -= PANEL_TITLE_DELAY_
     counter += 1
 
 
-def lcdTitleEvents_(title, duration, lcds):
-  lcdStrip = ucuq.LCD_Strip(lcds)
+def panelTitleEvents_(title, duration, panels):
+  panelStrip = ucuq.PanelStrip(panels)
   t = types.SimpleNamespace(duration = duration)
-  yield from lcdTitlePrologEvents_(title, t, lcdStrip)
-  yield from lcdTitleMainEvents_(title, t.duration, lcdStrip)
+  yield from panelTitlePrologEvents_(title, t, panelStrip)
+  yield from panelTitleMainEvents_(title, t.duration, panelStrip)
 
 
-def lcdDurationEvents_(duration, width, lcds):
+def panelDurationEvents_(duration, width, panels):
   yield START_DELAY_
 
   for i in range(width * 5):
-    lcds.moveTo(0,1).putString(lcds[0].getForwardPeak(i, width * 5))
+    panels.moveTo(0,1).putString(panels[0].getForwardPeak(i, width * 5))
     yield duration / (width * 5 )
 
 
-def oledDurationEvents_(duration, oleds):
+def screenDurationEvents_(duration, screens):
   yield START_DELAY_
 
-  for y in range(OLED_HEIGHT_):
-    oleds.vLine(OLED_WIDTH_ -1, 0, y)
-    yield duration / OLED_HEIGHT_
+  for y in range(SCREEN_HEIGHT_):
+    screens.vLine(SCREEN_WIDTH_ -1, 0, y)
+    yield duration / SCREEN_HEIGHT_
 
 
 def set(dom):
@@ -364,7 +373,7 @@ def launch(part, timestamp, parts):
     extrema = types.SimpleNamespace()
   )
 
-  parts.lcds.uploadHPeakChars()\
+  parts.panels.uploadHPeakChars()\
     .createChar(6, NOTE_UP_CHARMAP_)\
     .createChar(7, NOTE_DOWN_CHARMAP_)
 
@@ -378,7 +387,7 @@ def launch(part, timestamp, parts):
   for voice in PARTS_[part][1]:
     tracking.voices.append(parseVoice_(decompressVoiceString_(voice)))
 
-  tracking.extrema.minNotes, tracking.extrema.maxNotes = getExtremaNotes_(tracking.voices)
+  tracking.extrema = types.SimpleNamespace(**dict(zip(('minNotes', 'maxNotes', 'ambituses'), getExtremaNotes_(tracking.voices))))
 
   pacedNotes = getPacedNotes_(tracking)
 
@@ -387,7 +396,7 @@ def launch(part, timestamp, parts):
 
   tracking.maxDuration = maxDuration
 
-  ambitus = max([( tracking.extrema.maxNotes[i] - tracking.extrema.minNotes[i] ) // 5 + 1 for i in range(3)])
+  maxAmbitus = max([tracking.extrema.ambituses[i] for i in range(3)])
 
   cb = ucuq.getCommitBehavior()
 
@@ -395,27 +404,27 @@ def launch(part, timestamp, parts):
     #    eventList.append(getCommitEvents_(maxDuration + START_DELAY_))
     cb = ucuq.setCommitBehavior(ucuq.CB_MANUAL)
 
-  parts.lcds.backlightOn()
+  parts.panels.backlightOn()
 
   timestamp += ucuq.dispatchEvents(
     (
       *(element for turn, voice in enumerate(tracking.voices) for element in (
         buzzerEvents_(voice, turn, prev, parts.buzzers[turn]),
         ringsActiveNotesEvents_(voice, turn, parts.rings),
-        lcdActiveNotesEvents_(voice, tracking.extrema.minNotes[turn], tracking.extrema.maxNotes[turn], ambitus, parts.lcds[turn])
+        panelActiveNotesEvents_(voice, PANEL_WIDTH_ - maxAmbitus // 5 - 3, tracking.extrema.minNotes[turn], tracking.extrema.ambituses[turn], parts.panels[turn])
         )
       ),
-      oledEvents_(pacedNotes, tracking, parts.oleds),
-      lcdTitleEvents_(PARTS_[part][0][1], maxDuration + START_DELAY_, parts.lcds),
-      lcdDurationEvents_(maxDuration, LCD_WIDTH_ - ambitus - 3, parts.lcds),
+      screenEvents_(pacedNotes, tracking, parts.screens),
+      panelTitleEvents_(PARTS_[part][0][1], maxDuration + START_DELAY_, parts.panels),
+      panelDurationEvents_(maxDuration, PANEL_WIDTH_ - maxAmbitus // 5 - 4, parts.panels),
       ringsRainbowEvents_(maxDuration, parts.rings)
     ),
     lambda tracking, user: sleepCallback_(tracking, user, timestamp),
     timestamp = 0
   )
 
-  parts.oleds.fill(0).show()
-  parts.lcds.clear().backlightOff()
+  parts.screens.fill(0).show()
+  parts.panels.clear().backlightOff()
   parts.rings.fill((0, 0, 0)).write()
 
   ucuq.setCommitBehavior(cb)
@@ -585,7 +594,7 @@ PARTS_ = (
     'eJztWluC6yAI3Up3MDFRk2b/C7tNBIUTNI92Zjoz98v6AA+ICKShm134mG4+pDZwf6L+kPtrc380flm19uIy6eLND3NqwzoextQNgVqaDj211zeVXMeZmBCP8NHfYr/2Osbx4DP0t7AwWto8EGhg4IGeBhKlYhM7WhRpUR5o8V0pg2azNm6VhnZY9/OvQvquAgM3zwNuLhOtk3VbSbPAZUxaQsbQSyi0LpkVQe5kR61b4cG+flBbbU3wkwGmK7JctXu+S4jLw2UI3S5mWDlJTBoNnXCBs/b6clGL6BM7iZO7fwJOZVlLO0E/GONSnYN2YOzQOugTG88tsefD2vQD8DnKf6rQQT+vA/os9gB9wmW4KgtNBZ1SKvsGdDmPdtXC0o7UsnT3inR/U+s1pxi1clnZo1by4Xk4HF6nfHRy3pfmw/1JfCfx+wnGgc/peeQ7AB4aj4jr6DxclkhGhXpd9WmM7+k7VuR8tb3wpc7jvbjcJ+aVU/gCe/lv77/Q3q0XH5yxeAxKlFniKo4fOoMqBzzMo03LEkLMRLg8yclEY2FRp4WHkmPJBA41cAXze8sbRIyHV2ZztP5yjqvja83itRnsII9RhrxSGk00zpYJIO0k1KrjZhGP6JA5hjqtDLZsG0RRVYXgqhTfpIEo49lp16NU7o6a7htZIl8FI5sk2KrjnRxzxjoj69ya82avT8J09SqkrLezVtdNUBFBmghBfzn6KtGrrf4g7vcS1kjM+5aDLA4xe1OfbSGl19LFem2T/iDfQIn6SAI1Ko9ts+MYwImXY1WQ4/WOdaNn6jSRf+TaTebG+vcOZmSZBzbM/GX1FdeMuNMGZvcMzYSidSiIMK0jEuUzNHX8WOCLsctjxMy9lmkjHUQIWCHYZPRYSbACoCfwqHDnCD+gz68bmn2l7BVBD3hdXobnl57Xu+H56fZzVI97uKQ7T+Qj8z8YpjuFp/ha7WJPJQBGvR6PYDIfpAzgYOrioQD/gtQFWTa+zGS0jSJDTv4pWcdiirhXTleLOMvfY8zVCtLyIA3wBD1XLcQHMDZoZ5avjjJkC1bp7xkgXBYJG2DFzM7gs05Cegaiy+W5OOuy0M4+D7o+/dipDzbrXldO8rCJfTWwv25iyrTY2T53EPL7cHawrbe7eNja0wz1g1wL8LN6uSFlqj2slANvvvzAuylzZIub8c3XxXQn5Stq/xuDK6n8uSmP/zW9WY8Y547193D/7xuF9gIvqekgYQb+0ofLmn122eZ39CvMqp/ahU/dHJPVL8xkKejb5ftJyjJwXjQR6VKF52j2RTSwqbS3+uzSU13wiXP/etAuoe4+3D/Xzpv8'
     )
   ),(
-    ("test", "test"),
+    ("Hob. XI:10", "Joseph Haydn * Trio for Baryton, Viola and Cello in A major (Hob. XI:10) * I. Moderato"),
 (
 'eJztVluywyAI3Up2EK1KrPtf2DVRkQh12pnkPubyVUs4yPMg+GTD6h4LPPeDhWVz+wH8stl6KJ+K5OFW+4iLSdvxW3QKCj9Z21GHkku+njzKoMmIXkQ9SG53yiTX/hcvs4GqYhDlBRdccQ9uiG403ZV8M8TuoPit5QRRr02jEjRD/A6UADNUYBkfWWgYNUShEBYL4UiamXmelaKPWTlKOAgEP2NWMoG6vJ8COhFJ10gxmkDLdeo4QGwOj2EjYgHvlRKSZYLPJZyYWli2deYYCvYqeCYStGSRkOo2Ej/jwLdnoPZPIFXuDdur3GtWZ78hQWhhyxuFNE83hnRFrrrcXBlW091ValZqVmpWalZq/qXU3BlmQgOEzvjsWoGAZ5SGvBM7uUxuloz7sZJTovskwhfGp2TBVhII+vmrPwPIBX030X3FAMKCO3nEAE4IgYbFAALJjYkfHfmUwl3lFVebwdUajf8R+uT1ZGa9wNOda08TPON4oalPi2vC8WJ/0nSy/mxLMqIW8tHFIr26j8ow/kF6lNE33Z1v2b/12ot8lt+aEf/WGAqvIHlY+QKKAlVZznfXm9OVqit1DEtXqq7Uf3O1rlRdqfesVLPaL75jCrY=',
 'eJztVVuWwyAI3Up3kChqHvtfWDUBRMU06XzMmTl+1RK4IFyu8278ZMIrbHRYdw+Tsetr3pfjN1rYx9InwG/b7vxxWszhlU5ANgRNNsd+sMMENkHQ/+gTDREAXWaOMkpm4xcJ/rhih/nY6cwSHCKmw5ottoLeclQfWm2UmavrRduquJ2VM5ZtsValwUo5ehXi8scYHHWf6sPGpFNoE53JZbe01AQfES46EYBRmR8xItuaoS9QcaNuQuZgG+vEVy1CaeUXeZnNjVvR2HxJ7BRFymsXxEqseOp0WmjIY8nHko8l/7dLzpuC5IU8uzvcb4hXXO9qDzCfo3yXiTVwdzWe/k7fu6AGTjbJliwCJmOVWif843AdE6gOMEpS1wRoalry91kG0bNNKned6qmaAHIdcNyAU6j/c6g1lUTncsV69JSr8L8sNzWLVEYuG+WybFO2vV7PKiLbghLbXfLP6vZNXpDiVhFefRblXv709f+1t1R5N++Z+s9SuOYGuvm2HL/02SpbfstpCPYQ7CHYQ7CHYP8xwZ4n8wbqrL+v',
