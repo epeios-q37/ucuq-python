@@ -380,7 +380,6 @@ import time
 import types
 import typing
 import zlib
-from typing import TYPE_CHECKING, Any
 
 import atlastk
 
@@ -3301,8 +3300,9 @@ def voicesToEvents(voices, tempo, callback):
 
 
 def dispatchEvents(eventGenerators, durationCallback, **kwargs):
-  tracking = types.SimpleNamespace(
+  report = types.SimpleNamespace(
     cumul =  0,
+    duration = 0,
     eventsAmounts=[0] * len(eventGenerators)
   )
 
@@ -3310,31 +3310,34 @@ def dispatchEvents(eventGenerators, durationCallback, **kwargs):
   params = []
 
   if len(inspect.signature(durationCallback).parameters) >= 1:
-    params.append(tracking)
+    params.append(report)
 
   if len(inspect.signature(durationCallback).parameters) >= 2:
     params.append(types.SimpleNamespace(**kwargs))
 
   while True:
-    tracking.duration = sys.maxsize
+    minDuration = sys.maxsize
+    duration = sys.maxsize
+    report.generators = []
 
     for i in range(len(delays)):
-      if delays[i] != -1:
+      if delays[i] != sys.maxsize:
+        delays[i] -= report.duration
         if delays[i] == 0:
-          tracking.eventsAmounts[i] += 1
-          delays[i] = next(eventGenerators[i], -1)
-        tracking.duration = min(tracking.duration, delays[i])
-        
-    tracking.cumul += tracking.duration
+          report.eventsAmounts[i] += 1
+          generator = eventGenerators[i]
+          duration = next(generator, sys.maxsize)
+          report.generators.append((generator, duration))
+          delays[i] = duration
+        minDuration = min(minDuration, delays[i])
 
-    if durationCallback(*params) == False or all(i == -1 for i in delays):
+    report.duration = minDuration
+    report.cumul += minDuration
+
+    if all(delay == sys.maxsize for delay in delays) or ( durationCallback(*params) == False ):
       break
 
-    for i in range(len(delays)):
-      if delays[i] != -1:
-        delays[i] -= tracking.duration
-        
-  return tracking.cumul
+  return report.cumul
 
 
 def playVoices(voices, tempo, voiceCallback, durationCallback, **kwargs):
@@ -3946,7 +3949,7 @@ class _RavelFactory:
     def displayRingGauges(self, globalMax=0, placeholder=".",addendum="  "):
       self.panel.displayRingGauges(self.ring, 0 ,0, 16, globalMax, placeholder, addendum)
 
-    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
       buzzer: "_RavelFactory._Buzzer"
       ring: "_RavelFactory._Ring"
       screen: "_RavelFactory._Screen"
@@ -3986,7 +3989,7 @@ def __getattr__(name):
     current_module.__dict__["__getattr__"] = getattrBackup
     
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
   ravel: _RavelFactory._Kit
 
 class ScreenWall(FrameBuffer_):
