@@ -3411,6 +3411,14 @@ def gcCollect():
   addCommand("gc.collect()")
 
 
+def gcDisable():
+  addCommand("gc.disable()")
+
+
+def gcEnable():
+  addCommand("gc.enable()")
+
+
 def ntpSync(device = None):
   return getDevice(device=device).ntpSync()
 

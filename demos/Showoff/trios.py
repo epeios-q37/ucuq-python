@@ -37,7 +37,7 @@ RING_RAINBOW_DELAY_ = 1/3
 
 START_DELAY_ = (FAST_SCROLL_HEIGHT_ * START_SCROLL_DELAY_) + REGULAR_SCROLL_DELAY_ * (PIANO_ROLL_HEIGHT_ - FAST_SCROLL_HEIGHT_)
 
-COMMIT_MAX_DELAY_ = 1/3
+COMMIT_MAX_DELAY_ = .34
 
 SCREEN_ANTICIPATION_ = 0
 KIT_COUNT_ = 3
@@ -420,6 +420,8 @@ def launch(part, timestamp, parts):
 
   parts.panels.backlightOn()
 
+  # ucuq.gcDisable()
+
   timestamp += ucuq.dispatchEvents(
     (
       *(element for turn, voice in enumerate(tracking.voices) for element in (
@@ -438,13 +440,13 @@ def launch(part, timestamp, parts):
     stops = stops
   )
 
-  parts.screens.fill(0).show()
-  parts.panels.clear().backlightOff()
-  parts.rings.fill((0, 0, 0)).write()
+  # ucuq.gcEnable()
 
   ucuq.setCommitBehavior(cb)
 
-  ucuq.commit()
+  parts.screens.fill(0).show()
+  parts.panels.clear().backlightOff()
+  parts.rings.fill((0, 0, 0)).write()
 
 
 PARTS_ = (
