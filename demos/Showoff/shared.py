@@ -1,8 +1,6 @@
 import base64
 import zlib
 
-import ucuq
-
 RGB_MAX = 10
 
 def rainbowGradient_(n, max):

@@ -8,10 +8,6 @@
     padding-right: 1rem;
   }
 
-  .clearable-wrapper.empty input {
-    padding-right: 0;
-  }
-
   .clear-btn {
     position: absolute;
     right: 0.4rem;
@@ -77,12 +73,13 @@
 
         elements.forEach(el => {
           const isConnectButton =
-            el.tagName === 'BUTTON' &&
-            el.textContent.trim() === 'Connect';
+            el.tagName === 'BUTTON'
+            && ( el.textContent.trim() === 'Connect'
+                 || el.textContent.trim() === 'Select' );
 
           const isDevicesInput =
             el.tagName === 'INPUT' &&
-            el.getAttribute('list') === 'Devices';
+            el.classList.contains('clearable');
 
           const isClearButton =
             el.tagName === 'BUTTON' &&
@@ -177,4 +174,13 @@
     if (document.getElementById("PartnerOrientation").checked)
       launchEvent(`${x},${y},${z}|BUTTON|click||(PartnerDisplayOrientation)`);
   });
+</script>
+<script>
+  function removeFollowingSiblings(id) {
+    const element = document.getElementById(id);
+
+    while (element.nextElementSibling) {
+        element.nextElementSibling.remove();
+    }
+  }
 </script>

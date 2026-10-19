@@ -25,7 +25,7 @@ def atkSelect(dom, id):
   
   microbit.setPixel(x, y, level :=  (0 if microbit.getPixel(x, y) else 9))
   
-  dom.setAttribute(id, "style", f"opacity: {0 if level == 0 else 1}")
+  dom.setAttribute(dom.lastChild(id), "style", f"opacity: {0 if level == 0 else 1}")
 
 
 def atkSubmit(dom):
@@ -36,7 +36,6 @@ def atkSubmit(dom):
 
 def atkTest(dom):
   clear(dom)
-  dom.executeVoid('clearMatrix()')
   microbit.flash()
   
 

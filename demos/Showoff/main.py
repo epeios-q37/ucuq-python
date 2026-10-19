@@ -11,31 +11,25 @@ import ucuq
 
 import bouncing
 import colors
+import devices
+from devices import *
 import indy
 import canon
 import life
 import partner
 import pink
 import qrcodes
+import show
+import trios
+
 from show import (
   getParts as getParts_,
   countdownIfRequested as countdownIfRequested_,
   connect as connect_,
   syncTest as syncTest_
 )
-import trios
-
 
 DELAY_ = 0.5
-
-DEVICES_ = ("Alfa", "Lima", "India", "Golf")
-SHOW_DEVICES_ = (DEVICES_[0], DEVICES_[2], DEVICES_[1])
-"""
-DEVICES_ = ("Papa", "Romeo", "Mike")
-SHOW_DEVICES_ = DEVICES_
-"""
-HTML_OPTION_ = "<option>{}</option>"
-
 
 def combinaisons_(A):
   R = []
@@ -57,9 +51,9 @@ def partnerLength_(dom):
 
 
 def atk(dom):
-  devices = "\n".join(HTML_OPTION_.format(device) for device in combinaisons_(DEVICES_))
+  availableDevices = devices.getDevices()
   
-  dom.inner("", BODY.format(devices, DEVICES_[0], *SHOW_DEVICES_))  # type: ignore # noqa: F821
+  dom.inner("", BODY.format(availableDevices[0] if len(availableDevices) else "", *(availableDevices[:3] if len(availableDevices) >= 3 else [""] * 3))) # type: ignore
   partner.set(dom)
   trios.set(dom)
   qrcodes.set(dom)
@@ -123,7 +117,7 @@ def atkShowConnect(dom):
   while cont:
     cont = False
     try:
-      offset = connect_(tuple(dom.getValues(("ShowLeftDevice", "ShowMiddleDevice", "ShowRightDevice")).values()))
+      offset = connect_(tuple(dom.getValues(show.SHOW_SITES_INPUT).values()))
     except RuntimeError as e:
       dom.alert(f"RuntimeError: {e!s}")
       cont = True
@@ -158,6 +152,7 @@ def atkShowPink(dom):
 SHOWS_ = {
   "Colors": lambda timestamp, parts: colors.launch(timestamp, parts),
   "Bouncing": lambda timestamp, parts: bouncing.launch(timestamp, parts),
+  "Indy":  lambda timestamp, parts: indy.launch(timestamp, parts),
   "Pink":  lambda timestamp, parts: pink.launch(timestamp, parts),
   "Life":  lambda timestamp, parts: life.launch(timestamp, parts),
   "Canon":  lambda timestamp, parts: canon.launch(timestamp, parts),
