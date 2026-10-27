@@ -85,21 +85,22 @@ def _parseVoice(decompressedString):
   if not decompressedString.strip():
     return []
       
-  note_array = []
+  noteList = []
   tokens = decompressedString.split(" ")
   
   for token in tokens:
     if not token:
         continue
-    midi_str, fraction_str = token.split(":")
-    midi_note = int(midi_str)
     
-    num, den = map(int, (fraction_str if '/' in fraction_str else fraction_str + "/1").split("/"))
-    duration_fraction = Fraction(num, den)
+    midiString, fractionString = token.split(":")
+    midiNote = int(midiString)
     
-    note_array.append([midi_note, duration_fraction])
+    num, den = map(int, (fractionString if '/' in fractionString else fractionString + "/1").split("/"))
+    durationFraction = Fraction(num, den)
+    
+    noteList.append([midiNote, durationFraction])
       
-  return note_array
+  return noteList
 
 
 def _buzzerEvent(note, turn, prev, buzzer):
@@ -126,10 +127,10 @@ def _ringsActiveNotesEvent(note, turn, counter, rings):
   for k in range(_KIT_COUNT):
     if k == turn:
       colors = _VOICES_MAIN_COLORS
-      spots = _SPOTS[0]
+      spots = _RING_SPOTS[0]
     else:
       colors = _VOICES_REPEATER_COLORS
-      spots = _SPOTS[2 if turn == 2 else (1 if turn == 0 or k == 0 else 2)]
+      spots = _RING_SPOTS[2 if turn == 2 else (1 if turn == 0 or k == 0 else 2)]
 
     for spot in spots:
       rings[k].setValue(spot, (0, 0, 0))
@@ -158,17 +159,14 @@ def _screenComputeNotePos(turn, note, minNote, maxNote):
 
 
 def _screenDrawNote(index, pitch, minNote, maxNote, screen):
-  screen.pixel(_screenComputeNotePos(index, pitch, minNote, maxNote), 0, 1)
+  if pitch:
+    screen.pixel(_screenComputeNotePos(index, pitch, minNote, maxNote), 0, 1)
 
 
 def _screenDrawMarker(turn, color, counter, screen):
   width = _PIANO_ROLL_VOICE_WIDTH - _PIANO_ROLL_MARKER_WIDTH
   trueX =  abs((counter % width) * 2 - width)
-  screen.hLine( _PIANO_ROLL_VOICES_START[turn] + trueX, _SCREEN_HEIGHT - 1, _PIANO_ROLL_MARKER_WIDTH, color)
-  trueX = width - abs((counter % width) * 2 - width)
-  for index in range(3):
-    if turn != index:
-      screen.hLine( _PIANO_ROLL_VOICES_START[index] + trueX, _SCREEN_HEIGHT - 1, _PIANO_ROLL_MARKER_WIDTH, color)
+  screen.hLine( _PIANO_ROLL_VOICES_START[turn] + trueX, 0, _PIANO_ROLL_MARKER_WIDTH, color)
 
 
 def _screenDrawSeparators(counter, screens):
@@ -180,22 +178,19 @@ def _screenDrawSeparators(counter, screens):
 def _screenPianoRollEvent(pitches, tracking, separatorCounter, screens):
   minNotes, maxNotes = _unpack(tracking.extrema)
 
-  for turn, pitch in enumerate(pitches):
-    if pitch:
-      _screenDrawNote(turn, pitch, minNotes[turn], maxNotes[turn], screens)
+  for t, pitch in enumerate(pitches):
+    _screenDrawNote(t, pitch, minNotes[t], maxNotes[t], screens)
 
-  for turn, screen in enumerate(screens):
-    _screenDrawMarker(turn, 1, separatorCounter, screen)
+  for t, screen in enumerate(screens):
+    _screenDrawMarker(t, 1, separatorCounter, screen)
       
   screens.show()
 
-  for turn, screen in enumerate(screens):
-    pitch = pitches[turn]
-
-    if pitch:
-      _screenDrawNote(turn, pitch, minNotes[turn], maxNotes[turn], screen)
-
-  screens.scroll(dx=0, dy=1).hLine(0, 0, _SCREEN_WIDTH, 0).hLine(0, _PIANO_ROLL_HEIGHT, _SCREEN_WIDTH, 0)
+  for t, screen in enumerate(screens):
+    _screenDrawMarker(t, 0, separatorCounter, screen)
+    _screenDrawNote(t, pitches[t], minNotes[t], maxNotes[t], screen)
+  
+  screens.scroll(dx=0, dy=1).hLine(0, 0, _SCREEN_WIDTH, 0)
   _screenDrawSeparators(separatorCounter, screens)
 
 
@@ -230,9 +225,8 @@ def _getPacedNotes(tracking):
         del voice[0]
     elapsed += _REGULAR_SCROLL_DELAY
 
-    if _isDebug():  # noqa: SIM102
-      if elapsed >= _DEBUG_DURATION:
-        break
+    if _isDebug() and elapsed >= _DEBUG_DURATION:
+      break
 
   for _ in range(_PIANO_ROLL_HEIGHT):
     pacedNotes.append(((0,) * len(tracking.voices), _START_SCROLL_DELAY if start else _REGULAR_SCROLL_DELAY))
@@ -246,13 +240,15 @@ def _screenActiveNotesEvent(pitches, tracking, screens):
   for start in _PIANO_ROLL_VOICES_START:
     screens.rect(start, _PIANO_ROLL_HEIGHT, _PIANO_ROLL_VOICE_WIDTH, _SCREEN_HEIGHT - _PIANO_ROLL_HEIGHT, 0, True )
 
-  for index, pitch in enumerate(pitches):
+  for t, pitch in enumerate(pitches):
     if pitch:
-      pos = _screenComputeNotePos(index, pitch, minNotes[index], maxNotes[index])
-      screens.rect(pos - 1, _PIANO_ROLL_HEIGHT, 3, 4, 0, True)
-      screens.vLine(pos - 1, _PIANO_ROLL_HEIGHT, 2, 1)    
-      screens.vLine(pos + 1, _PIANO_ROLL_HEIGHT, 2, 1)    
-      screens.vLine(pos, _PIANO_ROLL_HEIGHT + 2, 2, 1)    
+      pos = _screenComputeNotePos(t, pitch, minNotes[t], maxNotes[t])
+
+      screens\
+        .rect(pos - 1, _PIANO_ROLL_HEIGHT, 3, 4, 0, True)\
+        .vLine(pos - 1, _PIANO_ROLL_HEIGHT, 2, 1)\
+        .vLine(pos + 1, _PIANO_ROLL_HEIGHT, 2, 1)\
+        .vLine(pos, _PIANO_ROLL_HEIGHT + 2, 2, 1)
 
 
 def _screenEvents(pacedNotes, tracking, screens):
@@ -263,29 +259,30 @@ def _screenEvents(pacedNotes, tracking, screens):
     yield pacedNotes[i][1] - ( _SCREEN_ANTICIPATION if i == 0 else 0 )
 
 
-def _panelActiveNotesEvents(voice, position, extremum, panel):
-  counter = 0
-  
-  yield _START_DELAY
-
+def _panelActiveNotesEvents(voice, extremum, panel):
+  shift = False
   ambitus = extremum.maxNote - extremum.minNote
+  peakWidth = ( _PANEL_WIDTH // 2 - 1  ) * 5  
 
-  peakWidth = ( _PANEL_WIDTH - position - 2  ) * 5
+  yield _START_DELAY - .02
 
   for note in voice:
-    panel.moveTo(position, 1).putString(chr(6 + counter % 2) if note[0] else " ")
-    panel.moveTo(position + 2, 1).putString(panel.getForwardPeak(( peakWidth - 1 ) * ( note[0] - extremum.minNote ) // ambitus, peakWidth ) if note[0] else panel.getEmptyPeak(peakWidth))
+    panel\
+      .moveTo(_PANEL_WIDTH // 2, 1)\
+      .putString(chr(6 + shift) if note[0] else " ")\
+      .moveTo(0, 1)\
+      .putString(panel.getForwardPeak(( peakWidth - 1 ) * ( note[0] - extremum.minNote ) // ambitus, peakWidth ) if note[0] else panel.getEmptyPeak(peakWidth))
 
     yield note[1]
 
     if note[0]:
-      counter += 1
+      shift = not shift
 
 
 def _ringsRainbowEvent(counter, rings):
-  for index, ring in enumerate(rings):
-    color = shared.getRainbowColor(counter + index * len(shared.RAINBOW) // _KIT_COUNT)
-    for spot in _SPOTS[3]:
+  for r, ring in enumerate(rings):
+    color = shared.getRainbowColor(counter + r * len(shared.RAINBOW) // _KIT_COUNT)
+    for spot in _RING_SPOTS[3]:
       ring.setValue(spot, color)
 
   rings.write()
@@ -296,7 +293,9 @@ def _ringsRainbowEvents(duration, rings):
   
   while elapsed < duration:
     _ringsRainbowEvent(counter, rings)
+
     yield _RING_RAINBOW_DELAY
+
     elapsed += _RING_RAINBOW_DELAY
     counter += 1
 
@@ -317,42 +316,38 @@ def _panelTitleEvents(title, panels):
   panelStrip = ucuq.PanelStrip(panels)
 
   titleRibbon = _getTitleRibbon(title)
-
   stripText = "".join(next(titleRibbon) for _ in range(_PANEL_STRIP_WIDTH))
   
   while True:
     panelStrip.moveTo(0,0).putString(stripText)
     stripText = stripText[1:] + next(titleRibbon)
+
     yield _PANEL_TITLE_DELAY
 
 
 def _panelDurationEvents(duration, width, panels):
   yield _START_DELAY
 
+  position = _PANEL_WIDTH // 2 + 2
+  width = _PANEL_WIDTH - position
+
   for i in range(width * 5):
-    panels.moveTo(0,1).putString(panels[0].getForwardPeak(i, width * 5))
+    panels\
+      .moveTo(position, 1)\
+      .putString(panels[0]\
+      .getForwardPeak(i, width * 5))
+    
     yield duration / (width * 5 )
-
-
-def _screenDurationEvents(duration, screens):
-  yield _START_DELAY
-
-  for y in range(_SCREEN_HEIGHT):
-    screens.vLine(_SCREEN_WIDTH -1, 0, y)
-    yield duration / _SCREEN_HEIGHT
 
 
 def set(dom):
   html = ""
+
   for part in _PARTS:
     selected = False # or part[0][0] == "Bartok"
     html += f'<option value="{_PARTS.index(part)}"{" selected" if selected else ""}>{part[0][0]}</option>'
 
   dom.inner("ShowTrios", html)
-
-
-def _t(n, rang=4):
-  return "∞" if n == sys.maxsize else f"{n:.{rang}g}"
 
 
 def _sleepCallback(report, user, timestamp):
@@ -362,7 +357,7 @@ def _sleepCallback(report, user, timestamp):
 
   sleepUntil_(timestamp + report.cumul, 0)  # The commits are handled directly.
 
-  return any(stop == False for stop in user.stops) # and report.cumul < 15
+  return any(stop == False for stop in user.stops)
 
 
 def _getDuration(voice):
@@ -382,7 +377,8 @@ def launch(part, timestamp, parts):
     extrema = [],
   )
 
-  parts.panels.uploadHPeakChars()\
+  parts.panels\
+    .uploadHPeakChars()\
     .createChar(6, _NOTE_UP_CHARMAP)\
     .createChar(7, _NOTE_DOWN_CHARMAP)
 
@@ -413,7 +409,7 @@ def launch(part, timestamp, parts):
   parts.panels.backlightOn()
 
   for turn in range(_KIT_COUNT):
-    for spot in _SPOTS[0]:
+    for spot in _RING_SPOTS[0]:
       parts.rings[turn].setValue(spot, _VOICES_MAIN_COLORS[turn])
 
   parts.rings.write()
@@ -423,9 +419,9 @@ def launch(part, timestamp, parts):
   timestamp += ucuq.dispatchEvents(
     (
       *(element for turn, voice in enumerate(tracking.voices) for element in (
-          _buzzerEvents(voice, turn, prev, parts.buzzers[turn], stops),
           _ringsActiveNotesEvents(voice, turn, parts.rings),
-          _panelActiveNotesEvents(voice, _PANEL_WIDTH // 2 - 1, tracking.extrema[turn], parts.panels[turn])
+          _panelActiveNotesEvents(voice, tracking.extrema[turn], parts.panels[turn]),
+          _buzzerEvents(voice, turn, prev, parts.buzzers[turn], stops),
         )
       ),
       _screenEvents(pacedNotes, tracking, parts.screens),
@@ -620,7 +616,6 @@ _PARTS = (
   )
 )
 
-
 _PICTURE = shared.unpack("eJytkmEOwyAIha8EtSvsPETvf4Q9EWz1z7Jkpm366ROeCJGPQuv4mXVj27hu3HRj23gVgJcI3FYB1hdB5xb/kqy3VZ7MnpjfYLtPxkrBF6VKnHWy72SaTDa3Dz7xHhtfD6ZvfGxcZjyyOEpZ1m1ejMUsa5arF6iGSS8WZk5P0C/D9VJ7Dm54vJiHKAJIr0X1KD0NfsuoTfGAvvzg2jjZwGxee0ub8CzzLrAXtzNZmvsJPftsDfN5YYMrvV6nhxh8d0/demMwrfxoNun5IOdoH1iCxbs/vJO5BxgK/0puxWgaRY7aowoXPdYh0Ew9BOEuM+LY7me6OmUcNy3q0s7Zcv8ZH/vm6ME=")
 
 _VOICES_MAIN_COLORS = (
@@ -635,7 +630,7 @@ _VOICES_REPEATER_COLORS = (
   (1,1,4)
 )
 
-_SPOTS = (
+_RING_SPOTS = (
   (1,2),
   (6,7),
   (4,5),
