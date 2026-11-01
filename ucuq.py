@@ -350,6 +350,7 @@ class Device_:
       self.pendingModules_ = []
 
     if self.commands_ or expression:
+      # print(self.commands_)
       result = self.execute_('\n'.join(self.commands_), expression)
       self.commands_ = []
 
@@ -390,6 +391,8 @@ import time
 import types
 import typing
 import zlib
+
+from dataclasses import dataclass
 
 import atlastk
 
@@ -2318,7 +2321,7 @@ class HD44780_I2C(Core_):
     return self.addMethods('putstr("{}")'.format(string.replace('"','\\"')))
 
   def clear(self):
-    # return self.addMethods("clear()") # Do not work !
+    # return self.addMethods("clear()") # Does not work !
     return self.moveTo(0,0).putString(" " * self.numColumns_ * self.numLines_)
 
   def showCursor(self, value=True):
@@ -3246,7 +3249,7 @@ def voicesExtractNotes_(voice_str):
 
 
 def playEvents(polyEvents, durationCallback, **kwargs):
-  tracking = types.SimpleNamespace(cumul =  0, eventsAmounts=[0] * len(polyEvents))
+  tracking = types.SimpleNamespace(cumul =  0, eventAmounts=[0] * len(polyEvents))
   user = types.SimpleNamespace(**kwargs)
 
   indexes = [0] * len(polyEvents)
@@ -3268,7 +3271,7 @@ def playEvents(polyEvents, durationCallback, **kwargs):
         if delays[i] == 0:
           events[i], delays[i] = polyEvents[i][indexes[i]]
           indexes[i] += 1
-          tracking.eventsAmounts[i] += 1
+          tracking.eventAmounts[i] += 1
           events[i]()
         tracking.duration = min(tracking.duration, delays[i])
         
@@ -3309,12 +3312,18 @@ def voicesToEvents(voices, tempo, callback):
 
   return raws
 
+@dataclass
+class _Report:
+  cumul: int
+  duration: int
+  eventAmounts: list[int]
+
 
 def dispatchEvents(eventGenerators, durationCallback, **kwargs):
-  report = types.SimpleNamespace(
+  report = _Report(
     cumul =  0,
     duration = 0,
-    eventsAmounts=[0] * len(eventGenerators)
+    eventAmounts=[0] * len(eventGenerators)
   )
 
   delays = [0] * len(eventGenerators)
@@ -3335,7 +3344,7 @@ def dispatchEvents(eventGenerators, durationCallback, **kwargs):
       if delays[i] != sys.maxsize:
         delays[i] -= report.duration
         if delays[i] == 0:
-          report.eventsAmounts[i] += 1
+          report.eventAmounts[i] += 1
           generator = eventGenerators[i]
           duration = next(generator, sys.maxsize)
           report.generators.append((generator, duration))
@@ -4062,8 +4071,6 @@ class PanelStrip:
       index = self.x_ // ravel.PANEL_WIDTH
       localX = self.x_ % ravel.PANEL_WIDTH
       localY = self.y_
-
-      self.lcds_[index].moveTo(localX, localY)
 
       localLen = min(len(string), ravel.PANEL_WIDTH - localX)
 
