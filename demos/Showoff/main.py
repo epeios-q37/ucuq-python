@@ -166,7 +166,7 @@ def atkShowPlay(dom):
   if show in SHOWS_:
     SHOWS_[show](timestamp, parts)
   else:
-    trios.launch(int(show), timestamp, parts)
+    trios.launch(show, timestamp, parts)
 
 
 def atkQRCodesSelect(dom, id):

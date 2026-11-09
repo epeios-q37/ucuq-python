@@ -1117,6 +1117,14 @@ def testCommit_(commit, behavior=None):
     return commit
 
 
+def bleOn(state = True):
+  return getDevice().bleOn(state)
+
+
+def bleOff():
+  return getDevice().bleOff()
+
+
 def sleepStart():
   return getDevice().sleepStart()
 
@@ -1431,6 +1439,12 @@ class Device(Device_):  # noqa: F821
 
     return self
 
+  def bleOn(self, state = True):
+    self.addCommand(f"bleOn({state!s})")
+    
+  def bleOff(self):
+    self.addCommand("bleOff()")
+    
   def sleepStart(self):
     if self.timer_ is None:
       self.timer_ = getObjectIndice()
