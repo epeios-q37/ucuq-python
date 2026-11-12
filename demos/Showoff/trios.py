@@ -12,7 +12,7 @@ import ucuq
 
 from show import (
   KIT_COUNT as _KIT_COUNT,
-  sleepUntil as sleepUntil_
+  sleepUntil as _sleepUntil
 )
 
 # No debug if == 0
@@ -39,7 +39,7 @@ _FAST_SCROLL_HEIGHT= 9 * _PIANO_ROLL_HEIGHT // 10
 _REGULAR_SCROLL_DELAY = .10
 _START_SCROLL_DELAY = .05
 
-_PANEL_TITLE_DELAY = 1/3
+_PANEL_TITLE_DELAY = 1/4
 
 _RING_RAINBOW_DELAY = 1/3
 
@@ -88,6 +88,7 @@ class _Tracking:
   voices: list
   extrema: list[_Extremum]
   monitoring: _Monitoring
+  stops: list[bool]
 
 
 def _isDebug():
@@ -106,6 +107,8 @@ def _decompressVoiceString(compressedString):
 
 
 def _parseVoice(decompressedString):
+  duration = 0
+
   if not decompressedString.strip():
     return []
       
@@ -120,9 +123,11 @@ def _parseVoice(decompressedString):
     midiNote = int(midiString)
     
     num, den = map(int, (fractionString if '/' in fractionString else fractionString + "/1").split("/"))
-    durationFraction = Fraction(num, den)
-    
-    noteList.append([midiNote, durationFraction])
+    duration += Fraction(num, den)
+
+    if duration > 0.04:
+      noteList.append([midiNote, duration])
+      duration = 0
       
   return noteList
 
@@ -138,8 +143,9 @@ def _buzzerEvents(voice, turn, buzzer, stops):
     
     if pitch != 0 and prevPitch == pitch:
       buzzer.off()
-      delay -= .01
-      yield 0.01
+      rest = min(delay / 2, 0.03)
+      delay -= rest
+      yield rest
     else:
       prevPitch = pitch
 
@@ -167,9 +173,15 @@ def _ringsActiveNotesEvent(note, turn, counter, rings):
 
 
 def _ringsActiveNotesEvents(voice, turn, rings):
-  counter = 0
+  rings[turn].fill(_VOICES_MAIN_COLORS[turn]).write()
 
-  yield _START_DELAY
+  yield _START_DELAY / 9
+
+  for l in range(2, 10):
+    rings[turn].setValue(l, (0,0,0)).write()
+    yield _START_DELAY / 9
+
+  counter = 0
 
   for note in voice:
     _ringsActiveNotesEvent(note[0], turn, counter, rings)
@@ -310,7 +322,7 @@ def _panelActiveNotesEvents(voice, turn, extremum, monitoring, panels):
     monitoring.flags[turn] = None if pitch == 0 else not monitoring.flags[turn]
     monitoring.peaks[turn] = None if pitch == 0 else ( _PANEL_PEAK_WIDTH - 1 ) * ( pitch - extremum.minNote ) // ambitus
 
-    _panelActiveNotesEvent( monitoring, panels)
+    _panelActiveNotesEvent(monitoring, panels)
 
     yield note[1]
 
@@ -325,6 +337,8 @@ def _ringsRainbowEvent(counter, rings):
 
 
 def _ringsRainbowEvents(duration, rings):
+  yield _START_DELAY
+  
   elapsed = counter = 0
   
   while elapsed < duration:
@@ -397,13 +411,14 @@ def set(dom):
     dom.removeAttribute("ShowCountdown", "checked")
 
 
-def _sleepCallback(report, user, timestamp):
-  sleepUntil_(timestamp + report.cumul, _COMMIT_DELAY)
+def _sleepCallback(report: ucuq.dispatchReport, tracking, startTimestamp):
+  if not _sleepUntil(startTimestamp + report.cumul, _COMMIT_DELAY):
+    return False
 
   if _isDebug() and report.cumul > _DEBUG_DURATION:
     return False
 
-  return any(stop == False for stop in user.stops)
+  return any(stop == False for stop in tracking.stops)
 
 
 def _getDuration(voice):
@@ -416,15 +431,14 @@ def _getDuration(voice):
 
 
 def launch(scoreId, timestamp, parts):
-  stops = [False] * _KIT_COUNT
-
   tracking = _Tracking(
     voices = [],
     extrema = [],
     monitoring = _Monitoring(
       flags = [None] * _KIT_COUNT,
       peaks = [None] * _KIT_COUNT
-    )
+    ),
+    stops = [False] * _KIT_COUNT
   )
 
   parts.panels\
@@ -433,7 +447,7 @@ def launch(scoreId, timestamp, parts):
     .createChar(7, _NOTE_DOWN_CHARMAP)
 
   timestamp = timestamp + 1
-  sleepUntil_(timestamp, 0)
+  _sleepUntil(timestamp, 0)
 
   maxDuration = 0
 
@@ -474,7 +488,7 @@ def launch(scoreId, timestamp, parts):
       *(element for turn, voice in enumerate(tracking.voices) for element in (
           _ringsActiveNotesEvents(voice, turn, parts.rings),
           _panelActiveNotesEvents(voice, turn, tracking.extrema[turn], tracking.monitoring, parts.panels),
-          _buzzerEvents(voice, turn, parts.buzzers[turn], stops),
+          _buzzerEvents(voice, turn, parts.buzzers[turn], tracking.stops),
         )
       ),
       _screenEvents(pacedNotes, tracking, parts.screens),
@@ -482,9 +496,7 @@ def launch(scoreId, timestamp, parts):
       _panelDurationEvents(maxDuration, parts.panels),
       _ringsRainbowEvents(maxDuration, parts.rings)
     ),
-    lambda report, user: _sleepCallback(report, user, timestamp),
-    timestamp = 0,
-    stops = stops
+    lambda report: _sleepCallback(report, tracking, timestamp)
   )
 
   # ucuq.gcEnable()
@@ -499,7 +511,16 @@ def launch(scoreId, timestamp, parts):
   parts.rings.fill((0, 0, 0)).write()
 
 
-_SCORE_LIST = ("Titelouze", "BWV 528a", "BWV 528b", "BWV 528c", "Ano. Lobt Gott", "BWV 848b", "BWV 847b", "Gimo 359a", "Gimo 359c", "Bartok", "Brahms", "Elgar", "Plaisir d'amour", "Rachmaninov", "BVW 530", "RV63", "Hob. XI:10", "Sheba" )
+_SCORE_LIST = tuple(sorted((
+    "Titelouze", "BWV 528a", "BWV 528b", "BWV 528c", "Ano. Lobt Gott",
+    "BWV 848b", "BWV 847b", "Gimo 359a", "Gimo 359c", "Bartok",
+    "Brahms", "Elgar", "Plaisir d'amour", "Rachmaninov", "BVW 530",
+    "RV63", "Hob. XI:10", "Sheba", "Beethoven 87-4", "Beethoven 3-1",
+    "Beethoven 3-2", "Beethoven 3-3", "Beethoven 3-4", "Beethoven 3-5", "Beethoven 3-6", "Mozart KV. 532")))
+
+print(_SCORE_LIST)
+
+_SCORE_LIST  = _SCORE_LIST + ("Test",)
 
 with open("scores.json", "r", encoding="utf-8") as j:
   _SCORES = json.load(j)

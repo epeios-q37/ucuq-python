@@ -7,7 +7,7 @@ import ucuq
 
 import show
 
-from show import sleepUntil as sleepUntil_
+from show import sleepUntil as _sleepUntil
 
 MAX_ = ucuq.ravel.SERVO_MAX
 STEP_ = 50
@@ -168,7 +168,7 @@ def launch(timestamp, parts):
     )
 
   timestamp += 1
-  sleepUntil_(timestamp, 0)
+  _sleepUntil(timestamp, 0)
 
   uppers = parts.uppers
   lowers = parts.lowers
@@ -189,13 +189,12 @@ def launch(timestamp, parts):
       ),
       getPanelEvents_(tracking, panels),
     ),
-    lambda report, user: (sleepUntil_(timestamp + report.cumul, 1/3),  not user.tracking.stop)[-1],
-    tracking = tracking,
-    timestamp = 0
+    lambda report:_sleepUntil(timestamp + report.cumul, 1/3) and not tracking.stop
   )
 
   ucuq.setCommitBehavior(cb)
 
+  rings.fill((0,0,0)).write()
   uppers.park()
   lowers.park()
   panels.backlightOff()

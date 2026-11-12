@@ -20,6 +20,7 @@ import partner
 import pink
 import qrcodes
 import show
+import threading
 import trios
 
 from show import (
@@ -30,6 +31,8 @@ from show import (
 )
 
 DELAY_ = 0.5
+
+W_SHOW_SUSPEND_RESTART_BUTTON = "ShowSuspendRestart"
 
 def combinaisons_(A):
   R = []
@@ -128,24 +131,24 @@ def atkShowConnect(dom):
     dom.alert(f"Décalage horaire : {offset} s !")
 
 
-def atkShowSync(dom):
+def atkShowSyncAdjust(dom):
   ucuq.ntpSync()
   syncTest_()
 
 
-def atkShowTest():
+def atkShowSyncTest():
   syncTest_()  
 
 
 def atkShowIndy(dom):
   parts = getParts_()
-  timestamp = countdownIfRequested_(dom, time.time() + DELAY_, parts)
+  timestamp = countdownIfRequested_(dom, show.getNtpTime() + DELAY_, parts)
   indy.launch(timestamp, parts)
 
 
 def atkShowPink(dom):
   parts = getParts_()
-  timestamp = countdownIfRequested_(dom, time.time() + DELAY_, parts)
+  timestamp = countdownIfRequested_(dom, show.getNtpTime() + DELAY_, parts)
   pink.launch(timestamp, parts)
 
 
@@ -161,12 +164,13 @@ SHOWS_ = {
 
 def atkShowPlay(dom):
   parts = getParts_()
-  show = dom.getValue("Show")
-  timestamp = countdownIfRequested_(dom, time.time() + DELAY_, parts)
-  if show in SHOWS_:
-    SHOWS_[show](timestamp, parts)
+  showId = dom.getValue("Show")
+  show.setState(show.State.STOP)
+  timestamp = countdownIfRequested_(dom, show.getNtpTime() + DELAY_, parts)
+  if showId in SHOWS_:
+    threading.Thread(target=SHOWS_[showId], args=(timestamp, parts)).start()
   else:
-    trios.launch(show, timestamp, parts)
+    threading.Thread(target=trios.launch, args=(showId, timestamp, parts)).start()
 
 
 def atkQRCodesSelect(dom, id):
@@ -178,7 +182,20 @@ def atkQRCodesDisplay(dom):
 
 
 if os.environ.get("PREFIX", "").startswith("/data/data/com.termux"):
-  atlastk.set_supplier(lambda url: os.system(f'am start -n com.android.chrome/com.google.android.apps.chrome.Main -d "{url}"')) 
+  atlastk.set_supplier(lambda url: os.system(f'am start -n com.android.chrome/com.google.android.apps.chrome.Main -d "{url}"'))
+
+
+def atkShowStop(dom):
+  show.setState(show.State.STOP)
+  dom.setValue(W_SHOW_SUSPEND_RESTART_BUTTON, "Suspend")
+
+
+def atkShowSuspendRestart(dom, id):
+  if show.toggleSuspendRestart(lambda: (show.getParts().buzzers.off(), ucuq.commit())):
+    dom.setValue(id, "Resume")
+  else:
+    dom.setValue(id, "Suspend")
+
 
 with open('Body.html', 'r') as file:
   BODY = file.read()
