@@ -79,15 +79,16 @@
       </div>
     </fieldset>
     <div style="display:flex; width: 100%; justify-content: space-around;"">
-      <fieldset style="display: flex; width: 100%; justify-content: space-around;">
+      <fieldset style="display: flex; column-gap: 5px;">
         <legend>Synchro.</legend>
         <button xdh:onevent="ShowSyncTest">Test</button>
         <button xdh:onevent="ShowSyncAdjust">Adjust</button>
       </fieldset>
-      <fieldset style="display:flex; width: 100%; justify-content: space-around;">
+      <fieldset style="display:flex; column-gap: 5px;">
         <legend>Control</legend>
-        <button xdh:onevent="ShowStop">Stop</button>
-        <button id="ShowSuspendRestart" xdh:onevent="ShowSuspendRestart">Suspend</button>
+        <button xdh:onevent="ShowDisableControl" style="font-size:x-large;">⏼</button>
+        <button xdh:onevent="ShowStop" style="font-size:x-large;">⏹</button>
+        <button id="ShowSuspendRestart" xdh:onevent="ShowSuspendRestart" style="font-size: x-large;">⏸</button>
       </fieldset>
     </div>
     <div style="display:flex; width: 100%; justify-content: space-around; margin-top: 8px;">

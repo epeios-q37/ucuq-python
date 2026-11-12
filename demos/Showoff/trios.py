@@ -518,8 +518,6 @@ _SCORE_LIST = tuple(sorted((
     "RV63", "Hob. XI:10", "Sheba", "Beethoven 87-4", "Beethoven 3-1",
     "Beethoven 3-2", "Beethoven 3-3", "Beethoven 3-4", "Beethoven 3-5", "Beethoven 3-6", "Mozart KV. 532")))
 
-print(_SCORE_LIST)
-
 _SCORE_LIST  = _SCORE_LIST + ("Test",)
 
 with open("scores.json", "r", encoding="utf-8") as j:

@@ -139,6 +139,7 @@ class _State(IntEnum):
   PLAYING = auto()
   STOPPING = auto()
   SUSPENDED = auto()
+  DISABLED = auto()
 
 _state = _State.PENDING
 _suspendTimestamp = 0
@@ -149,6 +150,7 @@ class State(IntEnum):
   STOP = auto()
   SUSPEND = auto()
   RESUME = auto()
+  DISABLE = auto()
 
 
 def setState(state: State, callback = None):
@@ -167,6 +169,8 @@ def setState(state: State, callback = None):
     case State.RESUME:
       _suspendDelta += getNtpTime() - _suspendTimestamp
       _state = _State.PLAYING
+    case State.DISABLE:
+      _state = _State.DISABLED
     case _:
       raise(ValueError)
 
@@ -213,7 +217,7 @@ def sleepUntil(timestamp, commitDelay):
         _lastCommitTimestamp = timestamp
         ucuq.commit()
 
-      if _checkpoint + 3 < timestamp:
+      if _state != _State.DISABLED and _checkpoint + 3 < timestamp:
         _checkpoint = timestamp
         waitUntilNtpTime(timestamp - .75)
 
