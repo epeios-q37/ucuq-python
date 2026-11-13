@@ -159,10 +159,10 @@ def _ringsActiveNotesEvent(note, turn, counter, rings):
   for k in range(_KIT_COUNT):
     if k == turn:
       colors = _VOICES_MAIN_COLORS
-      spots = _RING_SPOTS[0]
+      spots = _RING_SPOTS_LIST[0]
     else:
       colors = _VOICES_REPEATER_COLORS
-      spots = _RING_SPOTS[2 if turn == 2 else (1 if turn == 0 or k == 0 else 2)]
+      spots = _RING_SPOTS_LIST[(turn - k) % len(_RING_SPOTS_LIST)]
 
     for spot in spots:
       rings[k].setValue(spot, (0, 0, 0))
@@ -330,7 +330,7 @@ def _panelActiveNotesEvents(voice, turn, extremum, monitoring, panels):
 def _ringsRainbowEvent(counter, rings):
   for r, ring in enumerate(rings):
     color = shared.getRainbowColor(counter + r * len(shared.RAINBOW) // _KIT_COUNT)
-    for spot in _RING_SPOTS[3]:
+    for spot in _RING_SPOTS_LIST[( 3 - r ) % len(_RING_SPOTS_LIST)]:
       ring.setValue(spot, color)
 
   rings.write()
@@ -471,7 +471,7 @@ def launch(scoreId, timestamp, parts):
   parts.panels.backlightOn()
 
   for turn in range(_KIT_COUNT):
-    for spot in _RING_SPOTS[0]:
+    for spot in _RING_SPOTS_LIST[0]:
       parts.rings[turn].setValue(spot, _VOICES_MAIN_COLORS[turn])
 
   parts.rings.write()
@@ -532,14 +532,14 @@ _VOICES_MAIN_COLORS = (
 )
 
 _VOICES_REPEATER_COLORS = (
-  (5,1,1),
-  (1,5,1),
-  (1,1,5)
+  (3,1,1),
+  (1,3,1),
+  (1,1,3)
 )
 
-_RING_SPOTS = (
+_RING_SPOTS_LIST = (
   (1,2),
-  (0,3),
-  (7,4),
-  (5,6)
+  (3,4),
+  (5,6),
+  (7,0)
 )

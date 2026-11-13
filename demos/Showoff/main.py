@@ -197,14 +197,10 @@ def atkShowDisableControl(dom):
 
 def atkShowStop(dom):
   show.setState(show.State.STOP)
-  dom.setValue(W_SHOW_SUSPEND_RESTART_BUTTON, "⏸")
 
 
 def atkShowSuspendRestart(dom, id):
-  if show.toggleSuspendRestart(lambda: (show.getParts().buzzers.off(), ucuq.commit())):
-    dom.setValue(id, "⏵")
-  else:
-    dom.setValue(id, "⏸")
+  show.toggleSuspendRestart(lambda: (show.getParts().buzzers.off(), ucuq.commit()))
 
 
 def atkQRCodesSelect(dom, id):
